@@ -1,0 +1,84 @@
+services:
+
+  # extapi:
+  #   build: 
+  #     context: .
+  #     dockerfile: Dockerfile.extapi
+  #   ports:
+  #     - "8081:8081"
+  #   environment:
+  #     LOG_LEVEL: ${LOG_LEVEL}
+  #   volumes:
+  #     - ${BIN_DIR:-./bin}/extapi:/app:ro # Монтируем бинарник в контейнер
+  #   user: 65535:65535
+  #   entrypoint: /app
+
+  # server:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.server
+  #   # env_file:
+  #   #   - .env
+  #   ports:
+  #     - "8080:8080"
+  #     - "6060:6060"
+  #   volumes:
+  #     - ${BIN_DIR:-./bin}/server:/app:ro # Монтируем бинарник в контейнер
+  #     - ./.env:/.env:ro # Чтобы обновления конфигурации срабатывали при restart
+  #   user: 65535:65535
+  #   entrypoint: /app
+  #   depends_on:
+  #     - db
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # k6:
+  #   # Контейнер для запуска тестов
+  #   # 
+  #   # Пример использования:
+  #   # docker-compose up -d k6
+  #   # docker-compose exec k6 k6 run //tests/testfile.js
+  #   # ...
+
+  #   image: grafana/k6
+  #   volumes:
+  #     - ./tests:/tests
+  #   environment:
+  #     - K6_OUT=influxdb=http://influxdb:8086/k6
+  #   entrypoint: 
+  #     - "/bin/sh"
+  #     - "-c"
+  #     - "trap 'exit 0' SIGTERM; while true; do sleep 1; done" # Ничего не делаем, ждем SIGTERM
+  #   depends_on:
+  #     - influxdb
+  #     - grafana
+
+  # influxdb:
+  #   image: influxdb:1.8
+  #   ports:
+  #     - "8086:8086"
+  #   volumes:
+  #     - influx_data:/var/lib/influxdb
+
+  # grafana:
+  #   image: grafana/grafana
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - influxdb
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+
+volumes:
+  # influx_data:
+  # grafana_data:
+  pgdata:
+  

@@ -1,0 +1,23 @@
+-- +goose Up
+CREATE TABLE department (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    parent_id INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE employee (
+    id SERIAL PRIMARY KEY,
+    department_id INTEGER,
+    full_name VARCHAR(200) NOT NULL,
+    position VARCHAR(200) NOT NULL,
+    hired_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- +goose Down
+DROP TABLE department;
+DROP TABLE employee;
+
