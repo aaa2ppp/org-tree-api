@@ -9,7 +9,7 @@ import (
 	"org-tree-api/internal/storage/memstor"
 )
 
-func newStorage(cfg config.Config) (service.Storage, error) {
+func openStorage(cfg config.Config) (service.Storage, error) {
 	slog.Info("create storage in memory")
 	return memstor.New(), nil
 }
