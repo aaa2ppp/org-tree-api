@@ -1,33 +1,114 @@
-BIN_DIR ?= ./bin
-BUILD_FLAGS ?= 
-GOEXE := $(shell go env GOEXE)
+TMP_DIR     ?= ./tmp
+BIN_DIR     ?= ./bin
 
+GOEXE       := $(shell go env GOEXE)
+BUILD_FLAGS ?=
 
-LOG_LEVEL ?= INFO
+DOCKER_COMPOSE    ?= docker compose
+APP_SERVICE       := server
+DB_SERVICE        := db
+MIGRATE_SERVICE   := migrate
 
-DOCKER_COMPOSE := docker compose
-APP_SERVICE    := server
-DB_SERVICE     := db
-K6_SERVICE     := k6 grafana influxdb
-EXTAPI_SERVICE := extapi
-
-USE_EXTERNAL_DB   ?= no
-DB_UP_NEEDED      := $(if $(filter yes,$(USE_EXTERNAL_DB)),,db-up)
-DB_ADDR           := $(if $(filter yes,$(USE_EXTERNAL_DB)),,localhost:5432)
-DB_CHECK_TIMEOUT  := 30
+DB_CHECK_TIMEOUT  := 10
 DB_CHECK_INTERVAL := 2
+
 WAIT_DB_READY     := sh scripts/wait-db-ready.sh
 MIGRATE           := sh scripts/migrate.sh
+MERGE_CODE        := sh scripts/merge-code.sh
+
+SWAG_SOURCE_DIRS  := ./cmd/$(APP_SERVICE) ./internal/model ./internal/api
+SWAG_SOURCES      := $(filter-out %_test.go,$(wildcard $(addsuffix /*.go,$(SWAG_SOURCE_DIRS))))
+SWAG_DEST_DIR     := ./pkg/api/docs
+
+empty   :=
+space   := $(empty) $(empty)
+comma   := ,
+bold    := \033[1m
+cmd     := \033[38;5;228m
+var     := \033[1;36m
+target  := \033[38;5;178m
+comment := \033[38;5;65m
+esc     := \033[0m
 
 
-all:
-	echo "now nothing"
+# source and dest for merge, patch, etc...
+SRC   ?= .
+DST   ?= 1
 
-FORCE:
+.PHONY: all
 
-# Правило для подготовки зависимостей
+all: help
+
+# ============================================
+# RUN
+# ============================================
+
+.PHONY: run docker-run
+
+run: generate test build db-up migrate-up ## run server (local)
+	$(BIN_DIR)/server
+
+docker-run: docker-build docker-up ## run server in docker
+	$(DOCKER_COMPOSE) logs -f $(APP_SERVICE) $(MIGRATE_SERVICE)
+
+# ============================================
+# DOCKER COMMANDS
+# ============================================
+
+.PHONY: docker-build docker-up docker-down docker-down-volumes docker-logs
+.PHONY: docker-db-up docker-db-down docker-db-down-volumes docker-db-shell
+
+docker-build: ## build docker images
+	$(DOCKER_COMPOSE) build
+
+docker-up: ## start all services in docker
+	$(DOCKER_COMPOSE) up -d $(APP_SERVICE) 
+	@echo "Waiting for services to be ready..."
+	@sleep 1
+	$(DOCKER_COMPOSE) ps
+
+docker-down: ## stop all docker services
+	$(DOCKER_COMPOSE) down
+
+docker-down-volumes: ## stop docker and remove volumes
+	$(DOCKER_COMPOSE) down -v
+
+docker-logs: ## show docker logs
+	$(DOCKER_COMPOSE) logs -f
+
+docker-db-up:
+	$(DOCKER_COMPOSE) up -d $(DB_SERVICE)
+
+docker-db-down: ## stop database container
+	$(DOCKER_COMPOSE) down $(DB_SERVICE)
+
+docker-db-down-volumes: ## stop database and remove volumes
+	$(DOCKER_COMPOSE) down -v $(DB_SERVICE)
+
+docker-db-restart: db-down db-up ## restart database
+
+docker-db-shell: ## open psql in db container
+	$(DOCKER_COMPOSE) exec $(DB_SERVICE) psql -U $${DB_USER:-postgres} -d $${DB_NAME:-postgres}
+
+# ============================================
+# DEVELOPMENT COMMANDS (local)
+# ============================================
+
+.PHONY: deps check-goose check-swag check-stringer check-tools build swag-generate generate test clean merge
+
 deps: ## update deps
 	go mod tidy
+
+check-goose: ## install goose if need
+	@which goose 2>/dev/null || go install github.com/pressly/goose/v3/cmd/goose@v3.27.1
+
+check-swag: ## install swag if need
+	@which swag 2>/dev/null || go install github.com/swaggo/swag/cmd/swag@v1.16.4
+
+check-stringer: ## install stringer if need
+	@which stringer 2>/dev/null || go install golang.org/x/tools/cmd/stringer@latest
+
+check-tools: check-goose check-swag check-stringer
 
 
 # Находим все поддиректории в cmd, которые потенциально могут быть бинарниками
@@ -43,35 +124,122 @@ $(BIN_DIR)/%: FORCE
 
 build: $(BINARIES) ## build all binaries
 
+swag-generate: .swag-generate.done ## generate Swagger docs
+	
+.swag-generate.done: $(SWAG_SOURCES)
+	swag fmt  -d $(subst $(space),$(comma),$(SWAG_SOURCE_DIRS))
+	swag init -d $(subst $(space),$(comma),$(SWAG_SOURCE_DIRS)) -o $(SWAG_DEST_DIR)
+	@touch $@
+
+go-generate:
+	go generate ./...
+
+generate: go-generate swag-generate ## generate all
+
+test: ## test
+	go test ./internal/...
+
+test-integration: ## test on real database
+	go test ./tests/...
+
 clean: ## remove temporary and binary files
-	-rm -rf $(BIN_DIR) $(TMP_DIR)
+	-rm -rf $(BIN_DIR) $(TMP_DIR) .*-generate.done
 
+# ============================================
+# DATABASE (local)
+# ============================================
 
-check-goose: ## Check goose
-	@which goose 2>/dev/null || go install github.com/pressly/goose/v3/cmd/goose@latest
+.PHONY: db-up db-down db-down-volumes db-shell
 
-migrate-up: $(DB_UP_NEEDED) ## Apply all migrations
-	DB_ADDR=$(DB_ADDR) $(MIGRATE) up
-
-migrate-down: $(DB_UP_NEEDED) ## Rollback last migration
-	DB_ADDR=$(DB_ADDR) $(MIGRATE) down 1
-
-migrate-status: $(DB_UP_NEEDED) ## Show migration status
-	DB_ADDR=$(DB_ADDR) $(MIGRATE) status
-
-
-db-up: ## Start only database
+db-up: ## start database container for local dev
 	@if [ -z "$$($(DOCKER_COMPOSE) ps -q $(DB_SERVICE))" ]; then \
 		$(DOCKER_COMPOSE) up -d $(DB_SERVICE) && \
 		DOCKER_COMPOSE='$(DOCKER_COMPOSE)' $(WAIT_DB_READY); \
+	else \
+		echo "Database already running"; \
 	fi
 
-db-down: ## Stop database
-	$(DOCKER_COMPOSE) down $(DB_SERVICE)
+db-down: docker-db-down ## alias for docker-db-down
 
-db-down-volumes: ## Stop database and remove database volumes
-	$(DOCKER_COMPOSE) down -v $(DB_SERVICE)
+db-down-volumes: docker-db-down-volumes ## alias for docker-db-down-volumes
+
+db-shell: docker-db-shell ## alias for docker-db-shell
+
+# ============================================
+# MIGRATIONS (local)
+# ============================================
+
+.PHONY: migrate-up migrate-down migrate-status
+
+migrate-up: ## apply all migrations (local)
+	$(MIGRATE) up
+
+migrate-down: ## rollback last migration (local)
+	$(MIGRATE) down 1
+
+migrate-status: ## show migration status (local)
+	$(MIGRATE) status
+
+# ============================================
+# UTILS
+# ============================================
+
+.PHONY: FORCE help
+
+FORCE:
+
+merge: ## merge code to file for AI review
+	@mkdir -p $(TMP_DIR)
+	$(MERGE_CODE) $(SRC) > $(TMP_DIR)/$(DST).code 
 
 
-help: ## Display this help
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+patch: deps test ## make precommit patch
+	@mkdir -p $(TMP_DIR)
+	
+	@(set -e; \
+	staged_list="$(TMP_DIR)/staged_list.$$$$"; \
+	unstaged_list="$(TMP_DIR)/unstaged_list.$$$$"; \
+	git diff --staged --name-only -- $(SRC) > "$$staged_list"; \
+	git diff --name-only -- $(SRC) > "$$unstaged_list"; \
+	intersection=$$(grep -Fxf "$$staged_list" "$$unstaged_list" || true); \
+	rm -f "$$staged_list" "$$unstaged_list"; \
+	if [ -n "$$intersection" ]; then \
+		echo "" >&2; \
+		echo "$(bold)WARNING:$(esc) the following files have changes not staged for commit:" >&2; \
+		echo "  (use \"git add <file>...\" to update what will be committed)" >&2; \
+		printf '%s\n' $$intersection | sed 's/^/        /' >&2; \
+		echo "" >&2; \
+	fi)
+	
+	git diff --staged -- $(SRC) > $(TMP_DIR)/$(DST).patch
+	@echo "Patch saved to $(TMP_DIR)/$(DST).patch"
+
+help: ## show this help
+	@printf "$(bold)Usage:$(esc)\n"
+	@printf "  $(cmd)make$(esc) [$(var)VARIABLE$(esc)=value ...] [$(target)target$(esc) ...]\n"
+	@printf "\n$(bold)Variables:$(esc)\n"
+	@awk 'BEGIN {comment=""} \
+		/^[a-zA-Z0-9_-]+[[:space:]]*\?=/ { \
+			split($$0, a, "?="); \
+			gsub(/^[ \t]+|[ \t]+$$/, "", a[1]); \
+    		gsub(/^[ \t]+|[ \t]+$$/, "", a[2]); \
+			if ( prev ~ /^#/ ) { \
+				gsub(/^[ \t]+|[ \t]+$$/, "", prev); \
+				printf "  $(var)%-14s$(esc) = %-14s $(comment)%s$(esc)\n", a[1], a[2], prev; \
+			} else { \
+				printf "  $(var)%-14s$(esc) = %-14s\n", a[1], a[2]; \
+			} \
+		} \
+		{ prev=$$0 }' \
+		$(MAKEFILE_LIST)
+	@printf "\n$(bold)Targets:$(esc)\n"
+	@awk 'BEGIN {FS = ":.*?## "} \
+		/^[a-zA-Z0-9_-]+:.*?## / \
+		{printf "  $(target)%-22s$(esc) - %s\n", $$1, $$2}' \
+		$(MAKEFILE_LIST)
+	@printf "\n$(bold)Examples:$(esc)\n"
+	@printf "  $(cmd)make$(esc) $(target)test$(esc)                     $(comment)# run tests$(esc)\n"
+	@printf "  $(cmd)make$(esc) $(target)test-integration$(esc)         $(comment)# test service on real database$(esc)\n"
+	@printf "  $(cmd)make$(esc) $(target)run$(esc)                      $(comment)# run server locally$(esc)\n"
+	@printf "  $(cmd)make$(esc) $(target)docker-run$(esc)               $(comment)# run server in docker$(esc)\n"
+	@printf "  $(cmd)make$(esc) $(target)docker-build doscker-run$(esc) $(comment)# rebuild docker images and restsart$(esc)\n"

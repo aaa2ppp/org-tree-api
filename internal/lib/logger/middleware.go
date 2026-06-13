@@ -44,6 +44,8 @@ func HTTPLogging(log *slog.Logger, h http.Handler) http.Handler {
 			log:            log,
 		}
 
+		// TODO: добавить мету к контесту (rid... etc), чтобы можно было связать лог с ответами сервера
+
 		// Добавляем логгер в контекст запроса
 		ctx := Context(r.Context(), log)
 		r = r.WithContext(ctx)

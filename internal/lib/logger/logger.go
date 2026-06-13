@@ -17,7 +17,3 @@ func New(cfg Config) *slog.Logger {
 		return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.Level}))
 	}
 }
-
-func SetupDefault(cfg Config) {
-	slog.SetDefault(New(cfg))
-}

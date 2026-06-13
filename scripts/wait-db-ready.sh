@@ -1,13 +1,11 @@
 #!/bin/sh
 
-. ./.env
-
-: ${DB_CHECK_TIMEOUT:=30}
-: ${DB_CHECK_INTERVAL:=2}
 : ${DB_SERVICE:=db}
 : ${DB_USER:=postgres}
 : ${DB_NAME:=postgres}
 : ${DB_PASSWORD?required}
+: ${DB_CHECK_TIMEOUT:=30}
+: ${DB_CHECK_INTERVAL:=2}
 : ${DOCKER_COMPOSE:=docker-compose}
 
 check_database() {

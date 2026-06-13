@@ -12,3 +12,7 @@ bak/
 bak[0-9]/
 bin/
 benchmarks/
+external/
+go.work
+go.work.sum
+

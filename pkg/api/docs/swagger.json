@@ -1,0 +1,471 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "title": "API организационной структуры",
+        "contact": {},
+        "license": {
+            "name": "Apache 2.0"
+        },
+        "version": "1.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/departments": {
+            "get": {
+                "description": "**Query:**\n- depth: int (по умолчанию 1, максимум 5) — глубина *вложенных* подразделений в ответе (от виртуального корня)\n- include_employees: bool (по умолчанию true)\n\n**Response:**\n- department (объект подразделения)\n- employees: [] (если include_employees=true, сортировка по created_at или full_name)\n- children: [] (*вложенные* подразделения до depth, рекурсивно)\n- sort_by_name: true | false (опционально)\n\n*Глубина дерева определяется как **количество ребер** на самом длинном пути от корня до листового узла.*\nПредполагается, что подразделения верхнего уровня это дети виртуального корня.\nПри значении depth=1 будет возвращен список подразделение верхненго уровня без потомков.\nВнутри подразделения дочерние отделы и сотрудники сортируются по id, при установленном флаге\nsort_by_name - по имени (name/full_name), затем по id.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "department"
+                ],
+                "summary": "Получить список подразделении верхнего уровня (детали + сотрудники + поддерево)",
+                "parameters": [
+                    {
+                        "maximum": 5,
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Глубина вложенных подразделений в ответе",
+                        "name": "depth",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Возвращать сотрудников подразделения",
+                        "name": "include_employees",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Порядок сортировки",
+                        "name": "sort_by_name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.DepartmentNode"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            },
+            "post": {
+                "description": "**Body:**\n- name: str\n- parent_id: int | null (опционально)\n\n**Response:** созданное подразделение\n",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "department"
+                ],
+                "summary": "Создать подразделение",
+                "parameters": [
+                    {
+                        "description": "CreateDepartmentRequest",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.CreateDepartmentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.Department"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "409": {
+                        "description": "Conflict"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            }
+        },
+        "/departments/{department_id}": {
+            "get": {
+                "description": "**Query:**\n- depth: int (по умолчанию 1, максимум 5) — глубина *вложенных* подразделений в ответе\n- include_employees: bool (по умолчанию true)\n\n**Response:**\n- department (объект подразделения)\n- employees: [] (если include_employees=true, сортировка по created_at или full_name)\n- children: [] (*вложенные* подразделения до depth, рекурсивно)\n- sort_by_name: true | false (опционально)\n\n*Глубина дерева определяется как **количество ребер** на самом длинном пути от корня до листового узла.*\nПри значении depth=0 будет возвращено подразделение без потомков.\nВнутри подразделения дочерние отделы и сотрудники сортируются по id, при установленном флаге\nsort_by_name - по имени (name/full_name), затем по id.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "department"
+                ],
+                "summary": "Получить подразделение (детали + сотрудники + поддерево)",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "ID подразделения",
+                        "name": "department_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "maximum": 5,
+                        "type": "integer",
+                        "description": "Глубина вложенных подразделений в ответе",
+                        "name": "depth",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Возвращать сотрудников подразделения",
+                        "name": "include_employees",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Порядок сортировки",
+                        "name": "sort_by_name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.DepartmentNode"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            },
+            "delete": {
+                "description": "**Query:**\n- mode: str (cascade | reassign)\ncascade — удалить подразделение, всех сотрудников и все дочерние подразделения\nreassign — удалить подразделение, а сотрудников и дочерние подразделения переместить в reassign_to_department_id\n\n- reassign_to_department_id: int (обязателен, если mode=reassign)\n\n**Response:** 204 No Content\n",
+                "tags": [
+                    "department"
+                ],
+                "summary": "Удалить подразделение",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "ID подразделения",
+                        "name": "department_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "cascade",
+                            "reassign"
+                        ],
+                        "type": "string",
+                        "description": "Режим удаления",
+                        "name": "mode",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Расформировать подразделение в",
+                        "name": "reassign_to_department_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    },
+                    "409": {
+                        "description": "Conflict"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            },
+            "patch": {
+                "description": "**Body:**\n- name: str (опционально)\n- parent_id: int | null (опционально)\n\n**Response:** обновлённое подразделение\n\nДолжен быть задан покрайней мере один из параметров name или parent_id\nНельзя сделать подразделение родителем самого себя.\nНельзя создать цикл в дереве (например, переместить департамент внутрь своего поддерева).\nВ этом случае возвращает 409 Conflict.\n\nЕсли параметр parent_id отсутствует, то подразделение только переименовывается без перемещения.\nЕсли parent_id=null, то подразделение перемещается на верхний уровень.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "department"
+                ],
+                "summary": "Переместить подразделение в другое (изменить parent)",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "ID подразделения",
+                        "name": "department_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "MoveDepartmentRequest",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.MoveDepartmentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Department"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    },
+                    "409": {
+                        "description": "Conflict"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            }
+        },
+        "/departments/{department_id}/employees": {
+            "post": {
+                "description": "**Body:**\n- full_name: str\n- position: str\n- hired_at: date | null (опционально)\n\n**Response:** созданный сотрудник\n",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "department"
+                ],
+                "summary": "Создать сотрудника в подразделении",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "ID подразделения",
+                        "name": "department_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "CreateEmployeeRequest",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.CreateEmployeeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.Employee"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    },
+                    "409": {
+                        "description": "Conflict"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "api.CreateDepartmentRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "example": "IT отдел"
+                },
+                "parent_id": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "example": 1
+                }
+            }
+        },
+        "api.CreateEmployeeRequest": {
+            "type": "object",
+            "required": [
+                "full_name",
+                "position"
+            ],
+            "properties": {
+                "full_name": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "example": "Василий Иванович Пупкин"
+                },
+                "hired_at": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-05-30"
+                },
+                "position": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "example": "Програмист"
+                }
+            }
+        },
+        "api.MoveDepartmentRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "example": "IT отдел"
+                },
+                "parent_id": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "example": 1
+                }
+            }
+        },
+        "model.Department": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2026-05-31T14:17:10.0+03:00"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "name": {
+                    "type": "string",
+                    "example": "IT отдел"
+                },
+                "parent_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2026-05-31T14:17:10.0+03:00"
+                }
+            }
+        },
+        "model.DepartmentNode": {
+            "type": "object",
+            "properties": {
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.DepartmentNode"
+                    }
+                },
+                "department": {
+                    "$ref": "#/definitions/model.Department"
+                },
+                "employees": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Employee"
+                    }
+                }
+            }
+        },
+        "model.Employee": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2026-05-31T14:17:10.0+03:00"
+                },
+                "department_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "full_name": {
+                    "type": "string",
+                    "example": "Василий Васильевич Пупкин"
+                },
+                "hired_at": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-05-31"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "position": {
+                    "type": "string",
+                    "example": "Програмист"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2026-05-31T14:17:10.0+03:00"
+                }
+            }
+        }
+    }
+}

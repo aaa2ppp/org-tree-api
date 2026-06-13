@@ -2,10 +2,11 @@ package config
 
 import (
 	"log/slog"
+	"os"
 	"time"
 
-	"company-tree/internal/getenv"
-	"company-tree/internal/logger"
+	"org-tree-api/internal/lib/getenv"
+	"org-tree-api/internal/lib/logger"
 )
 
 type Logger = logger.Config
@@ -14,14 +15,16 @@ type DB struct {
 	Addr     string
 	User     string
 	Password string
-	Name     string
+	DBName   string
 	SSLMode  string
 }
 
 type Server struct {
-	Addr         string
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
+	Addr            string
+	ReadTimeout     time.Duration
+	WriteTimeout    time.Duration
+	ShutdownTimeout time.Duration
+	RequestTimeout  time.Duration
 }
 
 type Config struct {
@@ -30,26 +33,32 @@ type Config struct {
 	Server Server
 }
 
+const (
+	required = true
+	optional = false
+)
+
 func Load() (Config, error) {
-	var ge getenv.Getenv
-	required := true
+	ge := getenv.New(os.LookupEnv)
 
 	cfg := Config{
 		Logger: Logger{
-			Level:     ge.LogLevel("LOG_LEVEL", !required, slog.LevelInfo),
-			Plaintext: ge.Bool("LOG_PAINTEXT", !required, false),
+			Level:     ge.LogLevel("LOG_LEVEL", optional, slog.LevelInfo),
+			Plaintext: ge.Bool("LOG_PLAINTEXT", optional, false),
 		},
 		DB: DB{
 			Addr:     ge.String("DB_ADDR", required, ""),
-			User:     ge.String("DB_USER", !required, "postgres"),
+			User:     ge.String("DB_USER", optional, "postgres"),
 			Password: ge.String("DB_PASSWORD", required, ""),
-			Name:     ge.String("DB_NAME", !required, "postgres"),
-			SSLMode:  ge.String("DB_SSLMODE", !required, ""),
+			DBName:   ge.String("DB_NAME", optional, "postgres"),
+			SSLMode:  ge.String("DB_SSLMODE", optional, "disable"),
 		},
 		Server: Server{
-			Addr:         ge.String("SERVER_ADDR", required, ""),
-			ReadTimeout:  ge.Duration("READ_TIMEOUT", !required, 5*time.Second),
-			WriteTimeout: ge.Duration("WRITE_TIMEOUT", !required, 5*time.Second),
+			Addr:            ge.String("SERVER_ADDR", required, ""),
+			ReadTimeout:     ge.Duration("SERVER_READ_TIMEOUT", optional, 5*time.Second),
+			WriteTimeout:    ge.Duration("SERVER_WRITE_TIMEOUT", optional, 5*time.Second),
+			RequestTimeout:  ge.Duration("SERVER_REQUEST_TIMEOUT", optional, 5*time.Second),
+			ShutdownTimeout: ge.Duration("SERVER_SHUTDOWN_TIMEOUT", optional, 10*time.Second),
 		},
 	}
 

@@ -1,0 +1,484 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"strings"
+
+	"org-tree-api/internal/model"
+)
+
+type Service interface {
+	CreateDepartment(ctx context.Context, req model.Department) (model.Department, error)
+	CreateEmployee(ctx context.Context, req model.Employee) (model.Employee, error)
+	GetDepartmentTree(ctx context.Context, req model.GetDepartmentsTreeRequest) (*model.DepartmentNode, error)
+	MoveDepartment(ctx context.Context, req model.MoveDepartmentRequest) (model.Department, error)
+	DeleteDepartment(ctx context.Context, req model.DeleteDepartmentRequest) error
+}
+
+func New(s Service) *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /departments", CreateDepartment(s))
+	mux.HandleFunc("POST /departments/{department_id}/employees", CreateEmployee(s))
+	mux.HandleFunc("GET /departments", GetTopDepartments(s))
+	mux.HandleFunc("GET /departments/{department_id}", GetDepartmentTree(s))
+	mux.HandleFunc("PATCH /departments/{department_id}", MoveDepartment(s))
+	mux.HandleFunc("DELETE /departments/{department_id}", DeleteDepartment(s))
+	return mux
+}
+
+// CreateDepartment godoc
+//
+//	@tags			department
+//	@router			/departments [post]
+//	@summary		Создать подразделение
+//	@description	**Body:**
+//	@description	- name: str
+//	@description	- parent_id: int | null (опционально)
+//	@description
+//	@description	**Response:** созданное подразделение
+//	@description
+//	@accept		json
+//	@produce	json
+//	@param		req	body		CreateDepartmentRequest	true	"CreateDepartmentRequest"
+//	@success	201	{object}	model.Department
+//	@failure	400
+//	@failure	409
+//	@failure	500
+func CreateDepartment(s Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		h := newHelper(w, r, "api.CreateDepartment")
+
+		var req CreateDepartmentRequest
+		if err := h.decodeAndValidateRequestBody(&req); err != nil {
+			h.writeError(err)
+			return
+		}
+
+		var modelParentID int
+		if req.ParentID == nil {
+			modelParentID = model.VirtualRoot
+		} else {
+			modelParentID = *req.ParentID
+		}
+
+		department, err := s.CreateDepartment(h.ctx(), model.Department{
+			Name:     req.Name,
+			ParentID: modelParentID,
+		})
+		if err != nil {
+			h.writeError(err)
+			return
+		}
+
+		if department.ParentID == model.VirtualRoot {
+			// hide virtual root id
+			department.ParentID = 0
+		}
+		h.writeResponse(http.StatusCreated, department)
+	}
+}
+
+type CreateDepartmentRequest struct {
+	Name     string `json:"name" validate:"required" example:"IT отдел" minLength:"1" maxLength:"200"`
+	ParentID *int   `json:"parent_id" example:"1" minimum:"1"`
+}
+
+func (req *CreateDepartmentRequest) validate() error {
+	var errs []error
+
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" || len(req.Name) > model.MaxNameLength {
+		errs = append(errs, errors.New("invalid name"))
+	}
+
+	if req.ParentID != nil && !model.ValidID(*req.ParentID) {
+		errs = append(errs, errors.New("invalid parent_id"))
+	}
+
+	return errors.Join(errs...)
+}
+
+// CreateEmployee godoc
+//
+//	@tags			department
+//	@router			/departments/{department_id}/employees [post]
+//	@summary		Создать сотрудника в подразделении
+//	@description	**Body:**
+//	@description	- full_name: str
+//	@description	- position: str
+//	@description	- hired_at: date | null (опционально)
+//	@description
+//	@description	**Response:** созданный сотрудник
+//	@description
+//	@accept		json
+//	@produce	json
+//	@param		department_id	path		int						true	"ID подразделения"	minimum(1)
+//	@param		req				body		CreateEmployeeRequest	true	"CreateEmployeeRequest"
+//	@success	201				{object}	model.Employee
+//	@failure	400
+//	@failure	404
+//	@failure	409
+//	@failure	500
+func CreateEmployee(s Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		h := newHelper(w, r, "api.CreateEmployee")
+
+		departmentID, err := h.getDepartmentID()
+		if err != nil {
+			h.writeError(err)
+			return
+		}
+
+		var req CreateEmployeeRequest
+		if err := h.decodeAndValidateRequestBody(&req); err != nil {
+			h.writeError(err)
+			return
+		}
+
+		employee, err := s.CreateEmployee(h.ctx(), model.Employee{
+			DepartmentID: departmentID,
+			FullName:     req.FullName,
+			Position:     req.Position,
+			HiredAt:      req.HiredAt,
+		})
+		if err != nil {
+			h.writeError(err)
+			return
+		}
+
+		h.writeResponse(http.StatusCreated, employee)
+	}
+}
+
+type CreateEmployeeRequest struct {
+	FullName string     `json:"full_name" validate:"required" example:"Василий Иванович Пупкин" minLength:"1" maxLength:"200"`
+	Position string     `json:"position" validate:"required" example:"Програмист" minLength:"1" maxLength:"200"`
+	HiredAt  model.Date `json:"hired_at" swaggertype:"string" format:"date" example:"2026-05-30"`
+}
+
+func (req *CreateEmployeeRequest) validate() error {
+	var errs []error
+
+	req.FullName = strings.TrimSpace(req.FullName)
+	if req.FullName == "" || len(req.FullName) > model.MaxFullNameLength {
+		errs = append(errs, errors.New("invalid full_name"))
+	}
+
+	req.Position = strings.TrimSpace(req.Position)
+	if req.Position == "" || len(req.Position) > model.MaxPositionLength {
+		errs = append(errs, errors.New("invalid position"))
+	}
+
+	return errors.Join(errs...)
+}
+
+// GetDepartmentTree godoc
+//
+//	@tags			department
+//	@router			/departments/{department_id} [get]
+//	@summary		Получить подразделение (детали + сотрудники + поддерево)
+//	@description	**Query:**
+//	@description	- depth: int (по умолчанию 1, максимум 5) — глубина *вложенных* подразделений в ответе
+//	@description	- include_employees: bool (по умолчанию true)
+//	@description
+//	@description	**Response:**
+//	@description	- department (объект подразделения)
+//	@description	- employees: [] (если include_employees=true, сортировка по created_at или full_name)
+//	@description	- children: [] (*вложенные* подразделения до depth, рекурсивно)
+//	@description	- sort_by_name: true | false (опционально)
+//	@description
+//	@description	*Глубина дерева определяется как **количество ребер** на самом длинном пути от корня до листового узла.*
+//	@description	При значении depth=0 будет возвращено подразделение без потомков.
+//	@description	Внутри подразделения дочерние отделы и сотрудники сортируются по id, при установленном флаге
+//	@description	sort_by_name - по имени (name/full_name), затем по id.
+//	@produce		json
+//	@param			department_id		path		int		true	"ID подразделения"							minimum(1)
+//	@param			depth				query		int		false	"Глубина вложенных подразделений в ответе"	mimimum(0)	maximum(5)
+//	@param			include_employees	query		bool	false	"Возвращать сотрудников подразделения"
+//	@param			sort_by_name		query		bool	false	"Порядок сортировки"
+//	@success		200					{object}	model.DepartmentNode
+//	@failure		400
+//	@failure		404
+//	@failure		500
+func GetDepartmentTree(s Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		h := newHelper(w, r, "api.GetDepartmentTree")
+
+		departmentID := model.VirtualRoot
+		if !strings.HasSuffix(r.URL.Path, "/departments") {
+			var err error
+			departmentID, err = h.getDepartmentID()
+			if err != nil {
+				h.writeError(err)
+				return
+			}
+		}
+
+		q := h.query()
+
+		depth := q.Int("depth", optional, 1)
+		includeEmployees := q.Bool("include_employees", optional, true)
+		sortByName := q.Bool("sort_by_name", optional, false)
+
+		if err := q.Err(); err != nil {
+			h.writeError(&httpError{err.Error(), http.StatusBadRequest})
+			return
+		}
+
+		if depth < 0 || depth > model.MaxDepth {
+			h.writeError(&httpError{"invalid depth", http.StatusBadRequest})
+			return
+		}
+
+		if departmentID == model.VirtualRoot && depth == 0 {
+			h.writeError(&httpError{"invalid depth", http.StatusBadRequest})
+			return
+		}
+
+		tree, err := s.GetDepartmentTree(h.ctx(), model.GetDepartmentsTreeRequest{
+			ID:               departmentID,
+			Depth:            depth,
+			IncludeEmployees: includeEmployees,
+			SortByName:       sortByName,
+		})
+		if err != nil {
+			h.writeError(err)
+			return
+		}
+
+		if departmentID == model.VirtualRoot {
+			// hide virtual root id
+			tops := tree.Children
+			for i := range tops {
+				tops[i].Department.ParentID = 0
+			}
+			// replace nil to empty slice
+			if depth != 0 && tops == nil {
+				tops = []*model.DepartmentNode{}
+			}
+			h.writeResponse(http.StatusOK, tops)
+		} else {
+			if tree.Department.ParentID == model.VirtualRoot {
+				// hide virtual root id
+				tree.Department.ParentID = 0
+			}
+			h.writeResponse(http.StatusOK, tree)
+		}
+	}
+}
+
+// GetTopDepartments godoc
+//
+//	@tags			department
+//	@router			/departments [get]
+//	@summary		Получить список подразделении верхнего уровня (детали + сотрудники + поддерево)
+//	@description	**Query:**
+//	@description	- depth: int (по умолчанию 1, максимум 5) — глубина *вложенных* подразделений в ответе (от виртуального корня)
+//	@description	- include_employees: bool (по умолчанию true)
+//	@description
+//	@description	**Response:**
+//	@description	- department (объект подразделения)
+//	@description	- employees: [] (если include_employees=true, сортировка по created_at или full_name)
+//	@description	- children: [] (*вложенные* подразделения до depth, рекурсивно)
+//	@description	- sort_by_name: true | false (опционально)
+//	@description
+//	@description	*Глубина дерева определяется как **количество ребер** на самом длинном пути от корня до листового узла.*
+//	@description	Предполагается, что подразделения верхнего уровня это дети виртуального корня.
+//	@description	При значении depth=1 будет возвращен список подразделение верхненго уровня без потомков.
+//	@description	Внутри подразделения дочерние отделы и сотрудники сортируются по id, при установленном флаге
+//	@description	sort_by_name - по имени (name/full_name), затем по id.
+//	@produce		json
+//	@param			depth				query	int		false	"Глубина вложенных подразделений в ответе"	minimum(1)	maximum(5)
+//	@param			include_employees	query	bool	false	"Возвращать сотрудников подразделения"
+//	@param			sort_by_name		query	bool	false	"Порядок сортировки"
+//	@success		200					{array}	model.DepartmentNode
+//	@failure		400
+//	@failure		404
+//	@failure		500
+func GetTopDepartments(s Service) http.HandlerFunc {
+	return GetDepartmentTree(s)
+}
+
+// MoveDepartment godoc
+//
+//	@tags			department
+//	@router			/departments/{department_id} [patch]
+//	@summary		Переместить подразделение в другое (изменить parent)
+//	@description	**Body:**
+//	@description	- name: str (опционально)
+//	@description	- parent_id: int | null (опционально)
+//	@description
+//	@description	**Response:** обновлённое подразделение
+//	@description
+//	@description	Должен быть задан покрайней мере один из параметров name или parent_id
+//	@description	Нельзя сделать подразделение родителем самого себя.
+//	@description	Нельзя создать цикл в дереве (например, переместить департамент внутрь своего поддерева).
+//	@description	В этом случае возвращает 409 Conflict.
+//	@description
+//	@description	Если параметр parent_id отсутствует, то подразделение только переименовывается без перемещения.
+//	@description	Если parent_id=null, то подразделение перемещается на верхний уровень.
+//	@accept			json
+//	@produce		json
+//	@param			department_id	path		int						true	"ID подразделения"	minimum(1)
+//	@param			req				body		MoveDepartmentRequest	true	"MoveDepartmentRequest"
+//	@success		200				{object}	model.Department
+//	@failure		400
+//	@failure		404
+//	@failure		409
+//	@failure		500
+func MoveDepartment(s Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		h := newHelper(w, r, "api.MoveDepartment")
+
+		departmentID, err := h.getDepartmentID()
+		if err != nil {
+			h.writeError(err)
+			return
+		}
+
+		req := map[string]any{} // используем мапу вместо MoveDepartmentRequest, чтобы поймать null
+		if err := h.decodeRequestBody(&req); err != nil {
+			h.writeError(err)
+			return
+		}
+
+		modelReq, err := toModelMoveDepartmentRequest(departmentID, req)
+		if err != nil {
+			h.writeError(err)
+			return
+		}
+
+		if modelReq.ParentID == 0 && modelReq.Name == "" {
+			h.writeError(&httpError{"no fields to update", http.StatusBadRequest})
+			return
+		}
+
+		department, err := s.MoveDepartment(h.ctx(), modelReq)
+		if err != nil {
+			h.writeError(err)
+			return
+		}
+
+		h.writeResponse(http.StatusOK, department)
+	}
+}
+
+// MoveDepartmentRequest реально используется мапа, оставлено только для swagger-документации
+type MoveDepartmentRequest struct {
+	Name     string `json:"name,omitempty" example:"IT отдел" minLength:"1" maxLength:"200"`
+	ParentID int    `json:"parent_id,omitempty" example:"1" minimum:"1"`
+}
+
+func toModelMoveDepartmentRequest(id int, rawReq map[string]any) (model.MoveDepartmentRequest, error) {
+	modelReq := model.MoveDepartmentRequest{
+		ID: id,
+	}
+
+	if value, exists := rawReq["name"]; exists {
+		switch value := value.(type) {
+		case string:
+			value = strings.TrimSpace(value)
+			if value == "" || len(value) > model.MaxNameLength {
+				return modelReq, &httpError{"invalid name", http.StatusBadRequest}
+			}
+			modelReq.Name = value
+		default:
+			return modelReq, &httpError{"name must be string", http.StatusBadRequest}
+		}
+	}
+
+	if value, exists := rawReq["parent_id"]; exists {
+		switch value := value.(type) {
+		case nil:
+			modelReq.ParentID = model.VirtualRoot
+		case json.Number:
+			i64, err := value.Int64()
+			if err != nil || !model.ValidID(i64) {
+				return modelReq, &httpError{"invalid parent_id", http.StatusBadRequest}
+			}
+			modelReq.ParentID = int(i64)
+		default:
+			return modelReq, &httpError{"parent_id must be integer or null", http.StatusBadRequest}
+		}
+	}
+
+	return modelReq, nil
+}
+
+// DeleteDepartment godoc
+//
+//	@tags			department
+//	@router			/departments/{department_id} [delete]
+//	@summary		Удалить подразделение
+//	@description	**Query:**
+//	@description	- mode: str (cascade | reassign)
+//	@description	cascade — удалить подразделение, всех сотрудников и все дочерние подразделения
+//	@description	reassign — удалить подразделение, а сотрудников и дочерние подразделения переместить в reassign_to_department_id
+//	@description
+//	@description	- reassign_to_department_id: int (обязателен, если mode=reassign)
+//	@description
+//	@description	**Response:** 204 No Content
+//	@description
+//	@param		department_id				path	int		true	"ID подразделения"					minimum(1)
+//	@param		mode						query	string	true	"Режим удаления"					enums(cascade,reassign)
+//	@param		reassign_to_department_id	query	int		false	"Расформировать подразделение в"	minimum(1)
+//	@success	204
+//	@failure	400
+//	@failure	404
+//	@failure	409
+//	@failure	500
+func DeleteDepartment(s Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		h := newHelper(w, r, "api.DeleteDepartment")
+
+		departmentID, err := h.getDepartmentID()
+		if err != nil {
+			h.writeError(err)
+			return
+		}
+
+		q := h.query()
+
+		mode := q.String("mode", required, "")
+		if err := q.Err(); err != nil {
+			h.writeError(&httpError{err.Error(), http.StatusBadRequest})
+			return
+		}
+
+		var cascade bool
+		var reassignTo int
+
+		switch mode {
+		case "cascade":
+			cascade = true
+		case "reassign":
+			reassignTo = q.Int("reassign_to_department_id", required, model.VirtualRoot)
+			if err := q.Err(); err != nil {
+				h.writeError(&httpError{err.Error(), http.StatusBadRequest})
+				return
+			}
+			if !model.ValidID(reassignTo) {
+				h.writeError(&httpError{"invalid reassign_to_department_id", http.StatusBadRequest})
+				return
+			}
+		default:
+			h.writeError(&httpError{"mode must be cascade or reassign", http.StatusBadRequest})
+			return
+		}
+
+		err = s.DeleteDepartment(h.ctx(), model.DeleteDepartmentRequest{
+			ID:                     departmentID,
+			Cascade:                cascade,
+			ReassignToDepartmentID: reassignTo,
+		})
+		if err != nil {
+			h.writeError(err)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}
+}

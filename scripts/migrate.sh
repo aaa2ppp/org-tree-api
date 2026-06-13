@@ -1,10 +1,5 @@
 #!/bin/sh
 
-redefined_db_addr=$DB_ADDR
-
-. ./.env
-
-DB_ADDR=${redefined_db_addr:-$DB_ADDR}
 MIGRATIONS_DIR=${MIGRATIONS_DIR:-"./migrations"}
 
 if [ ! -d "$MIGRATIONS_DIR" ]; then

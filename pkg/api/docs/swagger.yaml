@@ -1,0 +1,387 @@
+basePath: /
+definitions:
+  api.CreateDepartmentRequest:
+    properties:
+      name:
+        example: IT отдел
+        maxLength: 200
+        minLength: 1
+        type: string
+      parent_id:
+        example: 1
+        minimum: 1
+        type: integer
+    required:
+    - name
+    type: object
+  api.CreateEmployeeRequest:
+    properties:
+      full_name:
+        example: Василий Иванович Пупкин
+        maxLength: 200
+        minLength: 1
+        type: string
+      hired_at:
+        example: "2026-05-30"
+        format: date
+        type: string
+      position:
+        example: Програмист
+        maxLength: 200
+        minLength: 1
+        type: string
+    required:
+    - full_name
+    - position
+    type: object
+  api.MoveDepartmentRequest:
+    properties:
+      name:
+        example: IT отдел
+        maxLength: 200
+        minLength: 1
+        type: string
+      parent_id:
+        example: 1
+        minimum: 1
+        type: integer
+    type: object
+  model.Department:
+    properties:
+      created_at:
+        example: "2026-05-31T14:17:10.0+03:00"
+        format: date-time
+        type: string
+      id:
+        example: 2
+        type: integer
+      name:
+        example: IT отдел
+        type: string
+      parent_id:
+        example: 1
+        type: integer
+      updated_at:
+        example: "2026-05-31T14:17:10.0+03:00"
+        format: date-time
+        type: string
+    type: object
+  model.DepartmentNode:
+    properties:
+      children:
+        items:
+          $ref: '#/definitions/model.DepartmentNode'
+        type: array
+      department:
+        $ref: '#/definitions/model.Department'
+      employees:
+        items:
+          $ref: '#/definitions/model.Employee'
+        type: array
+    type: object
+  model.Employee:
+    properties:
+      created_at:
+        example: "2026-05-31T14:17:10.0+03:00"
+        format: date-time
+        type: string
+      department_id:
+        example: 1
+        type: integer
+      full_name:
+        example: Василий Васильевич Пупкин
+        type: string
+      hired_at:
+        example: "2026-05-31"
+        format: date
+        type: string
+      id:
+        example: 1
+        type: integer
+      position:
+        example: Програмист
+        type: string
+      updated_at:
+        example: "2026-05-31T14:17:10.0+03:00"
+        format: date-time
+        type: string
+    type: object
+info:
+  contact: {}
+  license:
+    name: Apache 2.0
+  title: API организационной структуры
+  version: "1.0"
+paths:
+  /departments:
+    get:
+      description: |-
+        **Query:**
+        - depth: int (по умолчанию 1, максимум 5) — глубина *вложенных* подразделений в ответе (от виртуального корня)
+        - include_employees: bool (по умолчанию true)
+
+        **Response:**
+        - department (объект подразделения)
+        - employees: [] (если include_employees=true, сортировка по created_at или full_name)
+        - children: [] (*вложенные* подразделения до depth, рекурсивно)
+        - sort_by_name: true | false (опционально)
+
+        *Глубина дерева определяется как **количество ребер** на самом длинном пути от корня до листового узла.*
+        Предполагается, что подразделения верхнего уровня это дети виртуального корня.
+        При значении depth=1 будет возвращен список подразделение верхненго уровня без потомков.
+        Внутри подразделения дочерние отделы и сотрудники сортируются по id, при установленном флаге
+        sort_by_name - по имени (name/full_name), затем по id.
+      parameters:
+      - description: Глубина вложенных подразделений в ответе
+        in: query
+        maximum: 5
+        minimum: 1
+        name: depth
+        type: integer
+      - description: Возвращать сотрудников подразделения
+        in: query
+        name: include_employees
+        type: boolean
+      - description: Порядок сортировки
+        in: query
+        name: sort_by_name
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.DepartmentNode'
+            type: array
+        "400":
+          description: Bad Request
+        "404":
+          description: Not Found
+        "500":
+          description: Internal Server Error
+      summary: Получить список подразделении верхнего уровня (детали + сотрудники
+        + поддерево)
+      tags:
+      - department
+    post:
+      consumes:
+      - application/json
+      description: |
+        **Body:**
+        - name: str
+        - parent_id: int | null (опционально)
+
+        **Response:** созданное подразделение
+      parameters:
+      - description: CreateDepartmentRequest
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreateDepartmentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.Department'
+        "400":
+          description: Bad Request
+        "409":
+          description: Conflict
+        "500":
+          description: Internal Server Error
+      summary: Создать подразделение
+      tags:
+      - department
+  /departments/{department_id}:
+    delete:
+      description: |
+        **Query:**
+        - mode: str (cascade | reassign)
+        cascade — удалить подразделение, всех сотрудников и все дочерние подразделения
+        reassign — удалить подразделение, а сотрудников и дочерние подразделения переместить в reassign_to_department_id
+
+        - reassign_to_department_id: int (обязателен, если mode=reassign)
+
+        **Response:** 204 No Content
+      parameters:
+      - description: ID подразделения
+        in: path
+        minimum: 1
+        name: department_id
+        required: true
+        type: integer
+      - description: Режим удаления
+        enum:
+        - cascade
+        - reassign
+        in: query
+        name: mode
+        required: true
+        type: string
+      - description: Расформировать подразделение в
+        in: query
+        minimum: 1
+        name: reassign_to_department_id
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+        "404":
+          description: Not Found
+        "409":
+          description: Conflict
+        "500":
+          description: Internal Server Error
+      summary: Удалить подразделение
+      tags:
+      - department
+    get:
+      description: |-
+        **Query:**
+        - depth: int (по умолчанию 1, максимум 5) — глубина *вложенных* подразделений в ответе
+        - include_employees: bool (по умолчанию true)
+
+        **Response:**
+        - department (объект подразделения)
+        - employees: [] (если include_employees=true, сортировка по created_at или full_name)
+        - children: [] (*вложенные* подразделения до depth, рекурсивно)
+        - sort_by_name: true | false (опционально)
+
+        *Глубина дерева определяется как **количество ребер** на самом длинном пути от корня до листового узла.*
+        При значении depth=0 будет возвращено подразделение без потомков.
+        Внутри подразделения дочерние отделы и сотрудники сортируются по id, при установленном флаге
+        sort_by_name - по имени (name/full_name), затем по id.
+      parameters:
+      - description: ID подразделения
+        in: path
+        minimum: 1
+        name: department_id
+        required: true
+        type: integer
+      - description: Глубина вложенных подразделений в ответе
+        in: query
+        maximum: 5
+        name: depth
+        type: integer
+      - description: Возвращать сотрудников подразделения
+        in: query
+        name: include_employees
+        type: boolean
+      - description: Порядок сортировки
+        in: query
+        name: sort_by_name
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.DepartmentNode'
+        "400":
+          description: Bad Request
+        "404":
+          description: Not Found
+        "500":
+          description: Internal Server Error
+      summary: Получить подразделение (детали + сотрудники + поддерево)
+      tags:
+      - department
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        **Body:**
+        - name: str (опционально)
+        - parent_id: int | null (опционально)
+
+        **Response:** обновлённое подразделение
+
+        Должен быть задан покрайней мере один из параметров name или parent_id
+        Нельзя сделать подразделение родителем самого себя.
+        Нельзя создать цикл в дереве (например, переместить департамент внутрь своего поддерева).
+        В этом случае возвращает 409 Conflict.
+
+        Если параметр parent_id отсутствует, то подразделение только переименовывается без перемещения.
+        Если parent_id=null, то подразделение перемещается на верхний уровень.
+      parameters:
+      - description: ID подразделения
+        in: path
+        minimum: 1
+        name: department_id
+        required: true
+        type: integer
+      - description: MoveDepartmentRequest
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/api.MoveDepartmentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Department'
+        "400":
+          description: Bad Request
+        "404":
+          description: Not Found
+        "409":
+          description: Conflict
+        "500":
+          description: Internal Server Error
+      summary: Переместить подразделение в другое (изменить parent)
+      tags:
+      - department
+  /departments/{department_id}/employees:
+    post:
+      consumes:
+      - application/json
+      description: |
+        **Body:**
+        - full_name: str
+        - position: str
+        - hired_at: date | null (опционально)
+
+        **Response:** созданный сотрудник
+      parameters:
+      - description: ID подразделения
+        in: path
+        minimum: 1
+        name: department_id
+        required: true
+        type: integer
+      - description: CreateEmployeeRequest
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreateEmployeeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.Employee'
+        "400":
+          description: Bad Request
+        "404":
+          description: Not Found
+        "409":
+          description: Conflict
+        "500":
+          description: Internal Server Error
+      summary: Создать сотрудника в подразделении
+      tags:
+      - department
+swagger: "2.0"
