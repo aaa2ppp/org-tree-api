@@ -9,9 +9,6 @@ APP_SERVICE       := server
 DB_SERVICE        := db
 MIGRATE_SERVICE   := migrate
 
-DB_CHECK_TIMEOUT  := 10
-DB_CHECK_INTERVAL := 2
-
 WAIT_DB_READY     := sh scripts/wait-db-ready.sh
 MIGRATE           := sh scripts/migrate.sh
 MERGE_CODE        := sh scripts/merge-code.sh
@@ -85,8 +82,6 @@ docker-db-down: ## stop database container
 docker-db-down-volumes: ## stop database and remove volumes
 	$(DOCKER_COMPOSE) down -v $(DB_SERVICE)
 
-docker-db-restart: db-down db-up ## restart database
-
 docker-db-shell: ## open psql in db container
 	$(DOCKER_COMPOSE) exec $(DB_SERVICE) psql -U $${DB_USER:-postgres} -d $${DB_NAME:-postgres}
 
@@ -94,7 +89,7 @@ docker-db-shell: ## open psql in db container
 # DEVELOPMENT COMMANDS (local)
 # ============================================
 
-.PHONY: deps check-goose check-swag check-stringer check-tools build swag-generate generate test clean merge
+.PHONY: deps check-goose check-swag check-stringer check-tools build swag-generate go-generate generate test clean merge
 
 deps: ## update deps
 	go mod tidy
@@ -220,9 +215,9 @@ help: ## show this help
 	@printf "\n$(bold)Variables:$(esc)\n"
 	@awk 'BEGIN {comment=""} \
 		/^[a-zA-Z0-9_-]+[[:space:]]*\?=/ { \
-			split($$0, a, "?="); \
+			split($$0, a, /\?=/); \
 			gsub(/^[ \t]+|[ \t]+$$/, "", a[1]); \
-    		gsub(/^[ \t]+|[ \t]+$$/, "", a[2]); \
+			gsub(/^[ \t]+|[ \t]+$$/, "", a[2]); \
 			if ( prev ~ /^#/ ) { \
 				gsub(/^[ \t]+|[ \t]+$$/, "", prev); \
 				printf "  $(var)%-14s$(esc) = %-14s $(comment)%s$(esc)\n", a[1], a[2], prev; \
@@ -242,4 +237,4 @@ help: ## show this help
 	@printf "  $(cmd)make$(esc) $(target)test-integration$(esc)         $(comment)# test service on real database$(esc)\n"
 	@printf "  $(cmd)make$(esc) $(target)run$(esc)                      $(comment)# run server locally$(esc)\n"
 	@printf "  $(cmd)make$(esc) $(target)docker-run$(esc)               $(comment)# run server in docker$(esc)\n"
-	@printf "  $(cmd)make$(esc) $(target)docker-build docker-run$(esc) $(comment)# rebuild docker images and restsart$(esc)\n"
+	@printf "  $(cmd)make$(esc) $(target)docker-build docker-run$(esc)  $(comment)# rebuild docker images and restart$(esc)\n"
