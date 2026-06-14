@@ -57,7 +57,7 @@ func (s *Service) CreateDepartment(ctx context.Context, req model.Department) (m
 		if err := checkDepartmentExists(ctx, tx, req.ParentID); err != nil {
 			return err
 		}
-		if err := checkNameUnique(ctx, tx, req.ParentID, req.Name); err != nil {
+		if err := checkChildNameNotExists(ctx, tx, req.ParentID, req.Name); err != nil {
 			return err
 		}
 		resp, err = tx.CreateDepartment(ctx, req)
@@ -88,13 +88,13 @@ func ensureDepartmentExists(ctx context.Context, tx StorageTx, id int) error {
 	return nil
 }
 
-func checkNameUnique(ctx context.Context, tx StorageTx, id int, name string) error {
+func checkChildNameNotExists(ctx context.Context, tx StorageTx, id int, name string) error {
 	exists, err := tx.HasChildWithName(ctx, id, name)
 	if err != nil {
 		return err
 	}
 	if exists {
-		return fmt.Errorf("%w: name %q not unique for department id=%d", model.ErrConflict, name, id)
+		return fmt.Errorf("%w: child name %q already in department id=%d", model.ErrConflict, name, id)
 	}
 	return nil
 }
@@ -356,7 +356,7 @@ func (s *Service) MoveDepartment(ctx context.Context, req model.MoveDepartmentRe
 			}
 		}
 
-		if err := checkNameUnique(ctx, tx, newParentID, newName); err != nil {
+		if err := checkChildNameNotExists(ctx, tx, newParentID, newName); err != nil {
 			return err
 		}
 
