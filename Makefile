@@ -193,7 +193,7 @@ merge: ## merge code to file for AI review
 	$(MERGE_CODE) $(SRC) > $(TMP_DIR)/$(DST).code 
 
 
-patch: deps test ## make precommit patch
+patch: deps generate test ## make precommit patch
 	@mkdir -p $(TMP_DIR)
 	
 	@(set -e; \
@@ -242,4 +242,4 @@ help: ## show this help
 	@printf "  $(cmd)make$(esc) $(target)test-integration$(esc)         $(comment)# test service on real database$(esc)\n"
 	@printf "  $(cmd)make$(esc) $(target)run$(esc)                      $(comment)# run server locally$(esc)\n"
 	@printf "  $(cmd)make$(esc) $(target)docker-run$(esc)               $(comment)# run server in docker$(esc)\n"
-	@printf "  $(cmd)make$(esc) $(target)docker-build doscker-run$(esc) $(comment)# rebuild docker images and restsart$(esc)\n"
+	@printf "  $(cmd)make$(esc) $(target)docker-build docker-run$(esc) $(comment)# rebuild docker images and restsart$(esc)\n"

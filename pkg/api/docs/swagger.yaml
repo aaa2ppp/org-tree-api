@@ -26,7 +26,7 @@ definitions:
         format: date
         type: string
       position:
-        example: Програмист
+        example: Программист
         maxLength: 200
         minLength: 1
         type: string
@@ -53,13 +53,10 @@ definitions:
         format: date-time
         type: string
       id:
-        example: 2
         type: integer
       name:
-        example: IT отдел
         type: string
       parent_id:
-        example: 1
         type: integer
       updated_at:
         example: "2026-05-31T14:17:10.0+03:00"
@@ -86,20 +83,16 @@ definitions:
         format: date-time
         type: string
       department_id:
-        example: 1
         type: integer
       full_name:
-        example: Василий Васильевич Пупкин
         type: string
       hired_at:
         example: "2026-05-31"
         format: date
         type: string
       id:
-        example: 1
         type: integer
       position:
-        example: Програмист
         type: string
       updated_at:
         example: "2026-05-31T14:17:10.0+03:00"
@@ -128,7 +121,7 @@ paths:
 
         *Глубина дерева определяется как **количество ребер** на самом длинном пути от корня до листового узла.*
         Предполагается, что подразделения верхнего уровня это дети виртуального корня.
-        При значении depth=1 будет возвращен список подразделение верхненго уровня без потомков.
+        При значении depth=1 будет возвращен список подразделений верхнего уровня без потомков.
         Внутри подразделения дочерние отделы и сотрудники сортируются по id, при установленном флаге
         sort_by_name - по имени (name/full_name), затем по id.
       parameters:
@@ -161,7 +154,7 @@ paths:
           description: Not Found
         "500":
           description: Internal Server Error
-      summary: Получить список подразделении верхнего уровня (детали + сотрудники
+      summary: Получить список подразделений верхнего уровня (детали + сотрудники
         + поддерево)
       tags:
       - department
@@ -304,7 +297,7 @@ paths:
 
         **Response:** обновлённое подразделение
 
-        Должен быть задан покрайней мере один из параметров name или parent_id
+        Должен быть задан по крайней мере один из параметров name или parent_id
         Нельзя сделать подразделение родителем самого себя.
         Нельзя создать цикл в дереве (например, переместить департамент внутрь своего поддерева).
         В этом случае возвращает 409 Conflict.

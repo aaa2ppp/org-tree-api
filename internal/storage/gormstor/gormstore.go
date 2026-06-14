@@ -139,7 +139,7 @@ func (g *GormStorage) HasChildWithName(ctx context.Context, parentID int, name s
 
 // HaveCommonChildNames implements service.StorageTx.
 func (g *GormStorage) HaveCommonChildNames(ctx context.Context, deptID1 int, deptID2 int) (bool, error) {
-	count, err := gorm.G[int](g.db()).Raw(`
+	maxCount, err := gorm.G[int](g.db()).Raw(`
 		WITH names (name, cnt) AS (
 			SELECT name, count(name) FROM department AS d
 			WHERE d.parent_id = $1 OR d.parent_id = $2
@@ -148,7 +148,7 @@ func (g *GormStorage) HaveCommonChildNames(ctx context.Context, deptID1 int, dep
 		SELECT max(cnt) FROM names;`,
 		deptID1, deptID2,
 	).First(ctx)
-	return count > 1, err
+	return maxCount > 1, err
 }
 
 // IsDescendantOf проверяет истинность утверждения. Считает, что узел является потомком самого себя.

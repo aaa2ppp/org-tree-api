@@ -60,7 +60,7 @@ func (d *departmentNode) deleteEmployee(id int) {
 
 // departmentsTree хранит записи отделов и сотрудников.
 // Дерево всегда содержит виртуальный корень отделов с ID=-1.
-// Корень запрещено изменять, удалять и добавлять в него сотрудникоа.
+// Корень запрещено изменять, удалять и добавлять в него сотрудников.
 type departmentsTree struct {
 	departments   map[int]*departmentNode
 	employees     map[int]*employeeNode
@@ -68,7 +68,7 @@ type departmentsTree struct {
 	emplIDCounter int
 }
 
-func newDepathmentsTree() *departmentsTree {
+func newDeparthmentsTree() *departmentsTree {
 	departments := map[int]*departmentNode{}
 	departments[-1] = &departmentNode{Department: model.Department{
 		ID:       -1,

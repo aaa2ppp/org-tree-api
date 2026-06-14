@@ -155,7 +155,7 @@ func CreateEmployee(s Service) http.HandlerFunc {
 
 type CreateEmployeeRequest struct {
 	FullName string     `json:"full_name" validate:"required" example:"Василий Иванович Пупкин" minLength:"1" maxLength:"200"`
-	Position string     `json:"position" validate:"required" example:"Програмист" minLength:"1" maxLength:"200"`
+	Position string     `json:"position" validate:"required" example:"Программист" minLength:"1" maxLength:"200"`
 	HiredAt  model.Date `json:"hired_at" swaggertype:"string" format:"date" example:"2026-05-30"`
 }
 
@@ -274,7 +274,7 @@ func GetDepartmentTree(s Service) http.HandlerFunc {
 //
 //	@tags			department
 //	@router			/departments [get]
-//	@summary		Получить список подразделении верхнего уровня (детали + сотрудники + поддерево)
+//	@summary		Получить список подразделений верхнего уровня (детали + сотрудники + поддерево)
 //	@description	**Query:**
 //	@description	- depth: int (по умолчанию 1, максимум 5) — глубина *вложенных* подразделений в ответе (от виртуального корня)
 //	@description	- include_employees: bool (по умолчанию true)
@@ -287,7 +287,7 @@ func GetDepartmentTree(s Service) http.HandlerFunc {
 //	@description
 //	@description	*Глубина дерева определяется как **количество ребер** на самом длинном пути от корня до листового узла.*
 //	@description	Предполагается, что подразделения верхнего уровня это дети виртуального корня.
-//	@description	При значении depth=1 будет возвращен список подразделение верхненго уровня без потомков.
+//	@description	При значении depth=1 будет возвращен список подразделений верхнего уровня без потомков.
 //	@description	Внутри подразделения дочерние отделы и сотрудники сортируются по id, при установленном флаге
 //	@description	sort_by_name - по имени (name/full_name), затем по id.
 //	@produce		json
@@ -313,7 +313,7 @@ func GetTopDepartments(s Service) http.HandlerFunc {
 //	@description
 //	@description	**Response:** обновлённое подразделение
 //	@description
-//	@description	Должен быть задан покрайней мере один из параметров name или parent_id
+//	@description	Должен быть задан по крайней мере один из параметров name или parent_id
 //	@description	Нельзя сделать подразделение родителем самого себя.
 //	@description	Нельзя создать цикл в дереве (например, переместить департамент внутрь своего поддерева).
 //	@description	В этом случае возвращает 409 Conflict.

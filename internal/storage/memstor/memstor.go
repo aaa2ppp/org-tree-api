@@ -15,7 +15,7 @@ type MemStorage struct {
 
 func New() *MemStorage {
 	return &MemStorage{
-		tx: memStorTx{newDepathmentsTree()},
+		tx: memStorTx{newDeparthmentsTree()},
 	}
 }
 
@@ -85,13 +85,13 @@ func (m *memStorTx) DeleteDepartmentCascade(_ context.Context, id int) error {
 	return m.tree.DeleteDepartmentCascade(id)
 }
 
-func (m *memStorTx) ReassignChildren(_ context.Context, srcDetpID int, dstDepthID int) error {
-	children, err := m.tree.GetDepartmentChildren(srcDetpID)
+func (m *memStorTx) ReassignChildren(_ context.Context, srcDeptID int, dstDeptID int) error {
+	children, err := m.tree.GetDepartmentChildren(srcDeptID)
 	if err != nil {
 		return err
 	}
 	for _, child := range children {
-		child.ParentID = dstDepthID
+		child.ParentID = dstDeptID
 		if err := m.tree.UpdateDepartment(child); err != nil {
 			return err
 		}

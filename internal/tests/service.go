@@ -53,7 +53,7 @@ type NewStorageFunc func(t *testing.T) service.Storage
 func Service_Create_Get_Departments(t *testing.T, ctx context.Context, newStorage NewStorageFunc) {
 	svc := service.New(newStorage(t))
 
-	// ------ GREATE ------
+	// ------ CREATE ------
 
 	// 1
 	gotD, err := svc.CreateDepartment(ctx, D{Name: "top_1", ParentID: -1})
@@ -250,7 +250,7 @@ func Service_Create_Get_Departments(t *testing.T, ctx context.Context, newStorag
 func Service_Create_Get_Employees(t *testing.T, ctx context.Context, newStorage NewStorageFunc) {
 	svc := service.New(newStorage(t))
 
-	// ------ GREATE ------
+	// ------ CREATE ------
 
 	// d1
 	getD, err := svc.CreateDepartment(ctx, D{Name: "top_1", ParentID: -1})
