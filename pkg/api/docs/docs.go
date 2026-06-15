@@ -39,6 +39,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
+                        "default": true,
                         "description": "Возвращать сотрудников подразделения",
                         "name": "include_employees",
                         "in": "query"
@@ -134,6 +135,7 @@ const docTemplate = `{
                     },
                     {
                         "maximum": 5,
+                        "minimum": 0,
                         "type": "integer",
                         "description": "Глубина вложенных подразделений в ответе",
                         "name": "depth",
@@ -141,6 +143,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
+                        "default": true,
                         "description": "Возвращать сотрудников подразделения",
                         "name": "include_employees",
                         "in": "query"

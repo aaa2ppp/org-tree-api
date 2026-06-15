@@ -193,8 +193,8 @@ func (req *CreateEmployeeRequest) validate() error {
 //	@description	sort_by_name - по имени (name/full_name), затем по id.
 //	@produce		json
 //	@param			department_id		path		int		true	"ID подразделения"							minimum(1)
-//	@param			depth				query		int		false	"Глубина вложенных подразделений в ответе"	mimimum(0)	maximum(5)
-//	@param			include_employees	query		bool	false	"Возвращать сотрудников подразделения"
+//	@param			depth				query		int		false	"Глубина вложенных подразделений в ответе"	minimum(0),maximum(5),default(1)
+//	@param			include_employees	query		bool	false	"Возвращать сотрудников подразделения"		default(true)
 //	@param			sort_by_name		query		bool	false	"Порядок сортировки"
 //	@success		200					{object}	model.DepartmentNode
 //	@failure		400
@@ -204,67 +204,60 @@ func GetDepartmentTree(s Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		h := newHelper(w, r, "api.GetDepartmentTree")
 
-		departmentID := model.VirtualRoot
-		if !strings.HasSuffix(r.URL.Path, "/departments") {
-			var err error
-			departmentID, err = h.getDepartmentID()
-			if err != nil {
-				h.writeError(err)
-				return
-			}
+		departmentID, err := h.getDepartmentID()
+		if err != nil {
+			h.writeError(err)
+			return
 		}
 
-		q := h.query()
-
-		depth := q.Int("depth", optional, 1)
-		includeEmployees := q.Bool("include_employees", optional, true)
-		sortByName := q.Bool("sort_by_name", optional, false)
-
-		if err := q.Err(); err != nil {
+		req, err := getDepartmentParams(h)
+		if err != nil {
 			h.writeError(&httpError{err.Error(), http.StatusBadRequest})
 			return
 		}
 
-		if depth < 0 || depth > model.MaxDepth {
-			h.writeError(&httpError{"invalid depth", http.StatusBadRequest})
-			return
-		}
-
-		if departmentID == model.VirtualRoot && depth == 0 {
+		if req.depth < 0 || req.depth > model.MaxDepth {
 			h.writeError(&httpError{"invalid depth", http.StatusBadRequest})
 			return
 		}
 
 		tree, err := s.GetDepartmentTree(h.ctx(), model.GetDepartmentsTreeRequest{
 			ID:               departmentID,
-			Depth:            depth,
-			IncludeEmployees: includeEmployees,
-			SortByName:       sortByName,
+			Depth:            req.depth,
+			IncludeEmployees: req.includeEmployees,
+			SortByName:       req.sortByName,
 		})
 		if err != nil {
 			h.writeError(err)
 			return
 		}
 
-		if departmentID == model.VirtualRoot {
+		if tree.Department.ParentID == model.VirtualRoot {
 			// hide virtual root id
-			tops := tree.Children
-			for i := range tops {
-				tops[i].Department.ParentID = 0
-			}
-			// replace nil to empty slice
-			if depth != 0 && tops == nil {
-				tops = []*model.DepartmentNode{}
-			}
-			h.writeResponse(http.StatusOK, tops)
-		} else {
-			if tree.Department.ParentID == model.VirtualRoot {
-				// hide virtual root id
-				tree.Department.ParentID = 0
-			}
-			h.writeResponse(http.StatusOK, tree)
+			tree.Department.ParentID = 0
 		}
+		h.writeResponse(http.StatusOK, tree)
 	}
+}
+
+type departmentParams struct {
+	depth            int
+	includeEmployees bool
+	sortByName       bool
+}
+
+func getDepartmentParams(h *helper) (departmentParams, error) {
+	q := h.query()
+
+	depth := q.Int("depth", optional, 1)
+	includeEmployees := q.Bool("include_employees", optional, true)
+	sortByName := q.Bool("sort_by_name", optional, false)
+
+	return departmentParams{
+		depth:            depth,
+		includeEmployees: includeEmployees,
+		sortByName:       sortByName,
+	}, q.Err()
 }
 
 // GetTopDepartments godoc
@@ -288,15 +281,50 @@ func GetDepartmentTree(s Service) http.HandlerFunc {
 //	@description	Внутри подразделения дочерние отделы и сотрудники сортируются по id, при установленном флаге
 //	@description	sort_by_name - по имени (name/full_name), затем по id.
 //	@produce		json
-//	@param			depth				query	int		false	"Глубина вложенных подразделений в ответе"	minimum(1)	maximum(5)
-//	@param			include_employees	query	bool	false	"Возвращать сотрудников подразделения"
+//	@param			depth				query	int		false	"Глубина вложенных подразделений в ответе"	minimum(1),maximum(5),default(1)
+//	@param			include_employees	query	bool	false	"Возвращать сотрудников подразделения"		default(true)
 //	@param			sort_by_name		query	bool	false	"Порядок сортировки"
 //	@success		200					{array}	model.DepartmentNode
 //	@failure		400
 //	@failure		404
 //	@failure		500
 func GetTopDepartments(s Service) http.HandlerFunc {
-	return GetDepartmentTree(s)
+	return func(w http.ResponseWriter, r *http.Request) {
+		h := newHelper(w, r, "api.GetTopDepartments")
+
+		req, err := getDepartmentParams(h)
+		if err != nil {
+			h.writeError(&httpError{err.Error(), http.StatusBadRequest})
+			return
+		}
+
+		if req.depth < 1 || req.depth > model.MaxDepth {
+			h.writeError(&httpError{"invalid depth", http.StatusBadRequest})
+			return
+		}
+
+		tree, err := s.GetDepartmentTree(h.ctx(), model.GetDepartmentsTreeRequest{
+			ID:               model.VirtualRoot,
+			Depth:            req.depth,
+			IncludeEmployees: req.includeEmployees,
+			SortByName:       req.sortByName,
+		})
+		if err != nil {
+			h.writeError(err)
+			return
+		}
+
+		// hide virtual root id
+		tops := tree.Children
+		for i := range tops {
+			tops[i].Department.ParentID = 0
+		}
+		// replace nil to empty slice
+		if tops == nil {
+			tops = []*model.DepartmentNode{}
+		}
+		h.writeResponse(http.StatusOK, tops)
+	}
 }
 
 // MoveDepartment godoc

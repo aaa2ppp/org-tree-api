@@ -131,7 +131,8 @@ paths:
         minimum: 1
         name: depth
         type: integer
-      - description: Возвращать сотрудников подразделения
+      - default: true
+        description: Возвращать сотрудников подразделения
         in: query
         name: include_employees
         type: boolean
@@ -261,9 +262,11 @@ paths:
       - description: Глубина вложенных подразделений в ответе
         in: query
         maximum: 5
+        minimum: 0
         name: depth
         type: integer
-      - description: Возвращать сотрудников подразделения
+      - default: true
+        description: Возвращать сотрудников подразделения
         in: query
         name: include_employees
         type: boolean

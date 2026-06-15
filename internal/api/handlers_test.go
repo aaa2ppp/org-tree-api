@@ -244,6 +244,40 @@ func TestParseInput(t *testing.T) {
 			400, nil,
 		},
 
+		// ---------- GetTopDepartments ----------
+		{
+			"GET", "/departments?depth=2&include_employees=false&sort_by_name=true", "",
+			"",
+			200,
+			model.GetDepartmentsTreeRequest{ID: -1, Depth: 2, IncludeEmployees: false, SortByName: true},
+		},
+		{
+			"GET", "/departments?depth=5", "",
+			"",
+			200,
+			model.GetDepartmentsTreeRequest{ID: -1, Depth: 5, IncludeEmployees: true},
+		},
+		{
+			"GET", "/departments?depth=0", "",
+			"",
+			400, nil,
+		},
+		{
+			"GET", "/departments?depth=-1", "",
+			"",
+			400, nil,
+		},
+		{
+			"GET", "/departments?depth=6", "",
+			"",
+			400, nil,
+		},
+		{
+			"GET", "/departments?sort_by_name=invalid", "",
+			"",
+			400, nil,
+		},
+
 		// ---------- MoveDepartment ----------
 		{
 			"PATCH", "/departments/10", "application/json",
