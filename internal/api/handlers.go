@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -57,16 +56,9 @@ func CreateDepartment(s Service) http.HandlerFunc {
 			return
 		}
 
-		var modelParentID int
-		if req.ParentID == nil {
-			modelParentID = model.VirtualRoot
-		} else {
-			modelParentID = *req.ParentID
-		}
-
 		department, err := s.CreateDepartment(h.ctx(), model.Department{
 			Name:     req.Name,
-			ParentID: modelParentID,
+			ParentID: req.ParentID.Value,
 		})
 		if err != nil {
 			h.writeError(err)
@@ -82,8 +74,8 @@ func CreateDepartment(s Service) http.HandlerFunc {
 }
 
 type CreateDepartmentRequest struct {
-	Name     string `json:"name" validate:"required" example:"IT отдел" minLength:"1" maxLength:"200"`
-	ParentID *int   `json:"parent_id" example:"1" minimum:"1"`
+	Name     string        `json:"name" validate:"required" example:"IT отдел" minLength:"1" maxLength:"200"`
+	ParentID Nullable[int] `json:"parent_id" swaggertype:"integer" example:"1" minimum:"1"`
 }
 
 func (req *CreateDepartmentRequest) validate() error {
@@ -94,8 +86,13 @@ func (req *CreateDepartmentRequest) validate() error {
 		errs = append(errs, errors.New("invalid name"))
 	}
 
-	if req.ParentID != nil && !model.ValidID(*req.ParentID) {
-		errs = append(errs, errors.New("invalid parent_id"))
+	if !req.ParentID.Valid {
+		// null or undefined
+		req.ParentID.Value = model.VirtualRoot
+	} else {
+		if !model.ValidID(req.ParentID.Value) {
+			errs = append(errs, errors.New("invalid parent_id"))
+		}
 	}
 
 	return errors.Join(errs...)
@@ -339,24 +336,17 @@ func MoveDepartment(s Service) http.HandlerFunc {
 			return
 		}
 
-		req := map[string]any{} // используем мапу вместо MoveDepartmentRequest, чтобы поймать null
-		if err := h.decodeRequestBody(&req); err != nil {
+		var req MoveDepartmentRequest
+		if err := h.decodeAndValidateRequestBody(&req); err != nil {
 			h.writeError(err)
 			return
 		}
 
-		modelReq, err := toModelMoveDepartmentRequest(departmentID, req)
-		if err != nil {
-			h.writeError(err)
-			return
-		}
-
-		if modelReq.ParentID == 0 && modelReq.Name == "" {
-			h.writeError(&httpError{"no fields to update", http.StatusBadRequest})
-			return
-		}
-
-		department, err := s.MoveDepartment(h.ctx(), modelReq)
+		department, err := s.MoveDepartment(h.ctx(), model.MoveDepartmentRequest{
+			ID:       departmentID,
+			Name:     req.Name.Value,
+			ParentID: req.ParentID.Value,
+		})
 		if err != nil {
 			h.writeError(err)
 			return
@@ -366,46 +356,35 @@ func MoveDepartment(s Service) http.HandlerFunc {
 	}
 }
 
-// MoveDepartmentRequest реально используется мапа, оставлено только для swagger-документации
 type MoveDepartmentRequest struct {
-	Name     string `json:"name,omitempty" example:"IT отдел" minLength:"1" maxLength:"200"`
-	ParentID int    `json:"parent_id,omitempty" example:"1" minimum:"1"`
+	Name     Nullable[string] `json:"name" swaggertype:"string" example:"IT отдел" minLength:"1" maxLength:"200"`
+	ParentID Nullable[int]    `json:"parent_id" swaggertype:"integer" example:"1" minimum:"1"`
 }
 
-func toModelMoveDepartmentRequest(id int, rawReq map[string]any) (model.MoveDepartmentRequest, error) {
-	modelReq := model.MoveDepartmentRequest{
-		ID: id,
+func (r *MoveDepartmentRequest) validate() error {
+	if !r.Name.Defined && !r.ParentID.Defined {
+		return errors.New("no fields to update")
 	}
 
-	if value, exists := rawReq["name"]; exists {
-		switch value := value.(type) {
-		case string:
-			value = strings.TrimSpace(value)
-			if value == "" || len(value) > model.MaxNameLength {
-				return modelReq, &httpError{"invalid name", http.StatusBadRequest}
-			}
-			modelReq.Name = value
-		default:
-			return modelReq, &httpError{"name must be string", http.StatusBadRequest}
+	r.Name.Value = strings.TrimSpace(r.Name.Value)
+	if r.Name.Defined && (r.Name.Value == "" || len(r.Name.Value) > model.MaxNameLength) {
+		return errors.New("invalid name")
+	}
+
+	switch {
+	case !r.ParentID.Defined:
+		// undefined
+		r.ParentID.Value = 0
+	case !r.ParentID.Valid:
+		// null
+		r.ParentID.Value = model.VirtualRoot
+	default:
+		if !model.ValidID(r.ParentID.Value) {
+			return errors.New("invalid parent_id")
 		}
 	}
 
-	if value, exists := rawReq["parent_id"]; exists {
-		switch value := value.(type) {
-		case nil:
-			modelReq.ParentID = model.VirtualRoot
-		case json.Number:
-			i64, err := value.Int64()
-			if err != nil || !model.ValidID(i64) {
-				return modelReq, &httpError{"invalid parent_id", http.StatusBadRequest}
-			}
-			modelReq.ParentID = int(i64)
-		default:
-			return modelReq, &httpError{"parent_id must be integer or null", http.StatusBadRequest}
-		}
-	}
-
-	return modelReq, nil
+	return nil
 }
 
 // DeleteDepartment godoc
