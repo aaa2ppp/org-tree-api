@@ -17,20 +17,33 @@ SWAG_SOURCE_DIRS  := ./cmd/$(APP_SERVICE) ./internal/model ./internal/api
 SWAG_SOURCES      := $(filter-out %_test.go,$(wildcard $(addsuffix /*.go,$(SWAG_SOURCE_DIRS))))
 SWAG_DEST_DIR     := ./pkg/api/docs
 
-empty   :=
-space   := $(empty) $(empty)
-comma   := ,
-bold    := \033[1m
-cmd     := \033[38;5;228m
-var     := \033[1;36m
-target  := \033[38;5;178m
-comment := \033[38;5;65m
-esc     := \033[0m
-
-
 # source and dest for merge, patch, etc...
 SRC   ?= .
 DST   ?= 1
+
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+COMMA := ,
+
+# Escape-последовательности терминала
+CHECK_COLOR := $(shell [ -n "$(MAKE_TERMOUT)" ] && echo "$(TERM)" | grep -EE "color|256|xterm" >/dev/null && echo "yes")
+# use color output (yes|no)
+COLOR ?= $(CHECK_COLOR)
+
+E_RSET := $(if $(COLOR),\033[0m)
+E_BOLD := $(if $(COLOR),\033[1m)
+E_CMD  :=
+
+E_RED    := \033[31m
+E_GREEN  := \033[32m
+E_YELLOW := \033[33m
+E_BLUE   := \033[34m
+
+# Dark Modern Theme (TrueColor)
+E_KEY  := $(if $(COLOR),\033[38;2;86;156;214m)
+E_VAR  := $(if $(COLOR),\033[38;2;156;220;254m)
+E_FUN  := $(if $(COLOR),\033[38;2;230;230;170m)
+E_COM  := $(if $(COLOR),\033[38;2;106;153;85m)
 
 .PHONY: all
 
@@ -122,8 +135,8 @@ build: $(BINARIES) ## build all binaries
 swag-generate: .swag-generate.done ## generate Swagger docs
 	
 .swag-generate.done: $(SWAG_SOURCES)
-	swag fmt  -d $(subst $(space),$(comma),$(SWAG_SOURCE_DIRS))
-	swag init -d $(subst $(space),$(comma),$(SWAG_SOURCE_DIRS)) -o $(SWAG_DEST_DIR)
+	swag fmt  -d $(subst $(SPACE),$(COMMA),$(SWAG_SOURCE_DIRS))
+	swag init -d $(subst $(SPACE),$(COMMA),$(SWAG_SOURCE_DIRS)) -o $(SWAG_DEST_DIR)
 	@touch $@
 
 go-generate:
@@ -131,10 +144,10 @@ go-generate:
 
 generate: go-generate swag-generate ## generate all
 
-test: ## test
+test: ## run tests
 	go test ./internal/...
 
-test-integration: ## test on real database
+test-integration: ## run integration tests on real database
 	go test ./tests/...
 
 clean: ## remove temporary and binary files
@@ -187,7 +200,6 @@ merge: ## merge code to file for AI review
 	@mkdir -p $(TMP_DIR)
 	$(MERGE_CODE) $(SRC) > $(TMP_DIR)/$(DST).code 
 
-
 patch: deps generate test ## make precommit patch
 	@mkdir -p $(TMP_DIR)
 	
@@ -199,20 +211,20 @@ patch: deps generate test ## make precommit patch
 	intersection=$$(grep -Fxf "$$staged_list" "$$unstaged_list" || true); \
 	rm -f "$$staged_list" "$$unstaged_list"; \
 	if [ -n "$$intersection" ]; then \
-		echo "" >&2; \
-		echo "$(bold)WARNING:$(esc) the following files have changes not staged for commit:" >&2; \
-		echo "  (use \"git add <file>...\" to update what will be committed)" >&2; \
-		printf '%s\n' $$intersection | sed 's/^/        /' >&2; \
-		echo "" >&2; \
+		printf "\n" >&2; \
+		printf "$(E_BOLD)WARNING:$(E_RSET) the following files have changes not staged for commit:\n" >&2; \
+		printf "  (use \"git add <file>...\" to update what will be committed)\n" >&2; \
+		printf "$(E_RED)%s$(E_RSET)\n" $$intersection | sed 's/^/        /' >&2; \
+		printf "\n" >&2; \
 	fi)
 	
 	git diff --staged -- $(SRC) > $(TMP_DIR)/$(DST).patch
-	@echo "Patch saved to $(TMP_DIR)/$(DST).patch"
+	@printf "Patch saved to $(TMP_DIR)/$(DST).patch\n"
 
 help: ## show this help
-	@printf "$(bold)Usage:$(esc)\n"
-	@printf "  $(cmd)make$(esc) [$(var)VARIABLE$(esc)=value ...] [$(target)target$(esc) ...]\n"
-	@printf "\n$(bold)Variables:$(esc)\n"
+	@printf "$(E_BOLD)Usage:$(E_RSET)\n"
+	@printf "  $(E_CMD)make$(E_RSET) [$(E_VAR)VARIABLE$(E_RSET)=value ...] [$(E_FUN)target$(E_RSET) ...]\n"
+	@printf "\n$(E_BOLD)Variables:$(E_RSET)\n"
 	@awk 'BEGIN {comment=""} \
 		/^[a-zA-Z0-9_-]+[[:space:]]*\?=/ { \
 			split($$0, a, /\?=/); \
@@ -220,21 +232,21 @@ help: ## show this help
 			gsub(/^[ \t]+|[ \t]+$$/, "", a[2]); \
 			if ( prev ~ /^#/ ) { \
 				gsub(/^[ \t]+|[ \t]+$$/, "", prev); \
-				printf "  $(var)%-14s$(esc) = %-14s $(comment)%s$(esc)\n", a[1], a[2], prev; \
+				printf "  $(E_VAR)%-14s$(E_RSET) = %-14s $(E_COM)%s$(E_RSET)\n", a[1], a[2], prev; \
 			} else { \
-				printf "  $(var)%-14s$(esc) = %-14s\n", a[1], a[2]; \
+				printf "  $(E_VAR)%-14s$(E_RSET) = %-14s\n", a[1], a[2]; \
 			} \
 		} \
 		{ prev=$$0 }' \
 		$(MAKEFILE_LIST)
-	@printf "\n$(bold)Targets:$(esc)\n"
+	@printf "\n$(E_BOLD)Targets:$(E_RSET)\n"
 	@awk 'BEGIN {FS = ":.*?## "} \
 		/^[a-zA-Z0-9_-]+:.*?## / \
-		{printf "  $(target)%-22s$(esc) - %s\n", $$1, $$2}' \
+		{printf "  $(E_FUN)%-22s$(E_RSET) - %s\n", $$1, $$2}' \
 		$(MAKEFILE_LIST)
-	@printf "\n$(bold)Examples:$(esc)\n"
-	@printf "  $(cmd)make$(esc) $(target)test$(esc)                     $(comment)# run tests$(esc)\n"
-	@printf "  $(cmd)make$(esc) $(target)test-integration$(esc)         $(comment)# test service on real database$(esc)\n"
-	@printf "  $(cmd)make$(esc) $(target)run$(esc)                      $(comment)# run server locally$(esc)\n"
-	@printf "  $(cmd)make$(esc) $(target)docker-run$(esc)               $(comment)# run server in docker$(esc)\n"
-	@printf "  $(cmd)make$(esc) $(target)docker-build docker-run$(esc)  $(comment)# rebuild docker images and restart$(esc)\n"
+	@printf "\n$(E_BOLD)Examples:$(E_RSET)\n"
+	@printf "  $(E_CMD)make$(E_RSET) $(E_FUN)test$(E_RSET)                     $(E_COM)# run tests$(E_RSET)\n"
+	@printf "  $(E_CMD)make$(E_RSET) $(E_FUN)test-integration$(E_RSET)         $(E_COM)# test service on real database$(E_RSET)\n"
+	@printf "  $(E_CMD)make$(E_RSET) $(E_FUN)run$(E_RSET)                      $(E_COM)# run server locally$(E_RSET)\n"
+	@printf "  $(E_CMD)make$(E_RSET) $(E_FUN)docker-run$(E_RSET)               $(E_COM)# run server in docker$(E_RSET)\n"
+	@printf "  $(E_CMD)make$(E_RSET) $(E_FUN)docker-build docker-run$(E_RSET)  $(E_COM)# rebuild docker images and restart$(E_RSET)\n"
