@@ -163,7 +163,7 @@ func Service_Create_Get_Departments(t *testing.T, ctx context.Context, newStorag
 	})
 
 	// depth = 2, sort by name
-	gotT, err = svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 1, SortByName: true})
+	gotT, err = svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 1, SortBy: model.SortByName})
 	be.Err(t, err, nil)
 	be.Equal(be.Diff(t), zeroedTimeN(gotT), &N{
 		Department: &D{ID: 1, Name: "top_1", ParentID: -1},
@@ -174,7 +174,7 @@ func Service_Create_Get_Departments(t *testing.T, ctx context.Context, newStorag
 		},
 	})
 
-	// depth = 3
+	// depth = 2
 	gotT, err = svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 2})
 	be.Err(t, err, nil)
 	be.Equal(be.Diff(t), zeroedTimeN(gotT), &N{
@@ -192,8 +192,26 @@ func Service_Create_Get_Departments(t *testing.T, ctx context.Context, newStorag
 		},
 	})
 
+	// depth = 2, sort by created_at
+	gotT, err = svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 2, SortBy: model.SortByCreatedAt})
+	be.Err(t, err, nil)
+	be.Equal(be.Diff(t), zeroedTimeN(gotT), &N{
+		Department: &D{ID: 1, Name: "top_1", ParentID: -1},
+		Children: []*N{
+			{Department: &D{ID: 3, Name: "child_3", ParentID: 1}},
+			{Department: &D{ID: 4, Name: "child_2", ParentID: 1}},
+			{Department: &D{ID: 5, Name: "child_1", ParentID: 1},
+				Children: []*N{
+					{Department: &D{ID: 6, Name: "grandchild_3", ParentID: 5}},
+					{Department: &D{ID: 7, Name: "grandchild_2", ParentID: 5}},
+					{Department: &D{ID: 8, Name: "grandchild_1", ParentID: 5}},
+				},
+			},
+		},
+	})
+
 	// depth = 3, sort by name
-	gotT, err = svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 3, SortByName: true})
+	gotT, err = svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 3, SortBy: model.SortByName})
 	be.Err(t, err, nil)
 	be.Equal(be.Diff(t), zeroedTimeN(gotT), &N{
 		Department: &D{ID: 1, Name: "top_1", ParentID: -1},
@@ -211,7 +229,7 @@ func Service_Create_Get_Departments(t *testing.T, ctx context.Context, newStorag
 	})
 
 	// get child
-	gotT, err = svc.GetDepartmentTree(ctx, GR{ID: 5, Depth: 5, SortByName: true})
+	gotT, err = svc.GetDepartmentTree(ctx, GR{ID: 5, Depth: 5, SortBy: model.SortByName})
 	be.Err(t, err, nil)
 	be.Equal(be.Diff(t), zeroedTimeN(gotT), &N{
 		Department: &D{ID: 5, Name: "child_1", ParentID: 1},
@@ -363,7 +381,18 @@ func Service_Create_Get_Employees(t *testing.T, ctx context.Context, newStorage 
 		},
 	})
 
-	gotN, err = svc.GetDepartmentTree(ctx, GR{ID: 1, IncludeEmployees: true, SortByName: true})
+	gotN, err = svc.GetDepartmentTree(ctx, GR{ID: 1, IncludeEmployees: true, SortBy: model.SortByCreatedAt})
+	be.Err(t, err, nil)
+	be.Equal(be.Diff(t), zeroedTimeN(gotN), &N{
+		Department: &D{ID: 1, Name: "top_1", ParentID: -1},
+		Employees: []*E{
+			{ID: 1, FullName: "empl_3", Position: "staff", DepartmentID: 1},
+			{ID: 2, FullName: "empl_2", Position: "staff", DepartmentID: 1},
+			{ID: 3, FullName: "empl_1", Position: "staff", DepartmentID: 1},
+		},
+	})
+
+	gotN, err = svc.GetDepartmentTree(ctx, GR{ID: 1, IncludeEmployees: true, SortBy: model.SortByName})
 	be.Err(t, err, nil)
 	be.Equal(be.Diff(t), zeroedTimeN(gotN), &N{
 		Department: &D{ID: 1, Name: "top_1", ParentID: -1},
@@ -405,7 +434,7 @@ func Service_Create_Get_Employees(t *testing.T, ctx context.Context, newStorage 
 		},
 	})
 
-	gotN, err = svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 5, IncludeEmployees: true, SortByName: true})
+	gotN, err = svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 5, IncludeEmployees: true, SortBy: model.SortByName})
 	be.Err(t, err, nil)
 	be.Equal(be.Diff(t), zeroedTimeN(gotN), &N{
 		Department: &D{ID: 1, Name: "top_1", ParentID: -1},
@@ -496,7 +525,7 @@ func Service_MoveDepartment(t *testing.T, ctx context.Context, newStorage NewSto
 	be.Err(t, err, nil)
 	be.Equal(be.Diff(t), zeroedTimeD(gotD), D{ID: 5, Name: "top_2", ParentID: -1})
 
-	gotN, err := svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 5, SortByName: true})
+	gotN, err := svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 5, SortBy: model.SortByName})
 	be.Err(t, err, nil)
 	be.Equal(be.Diff(t), zeroedTimeN(gotN), &N{
 		Department: &D{ID: 1, Name: "top_1", ParentID: -1},
@@ -523,7 +552,7 @@ func Service_DeleteDepartment(t *testing.T, ctx context.Context, newStorage NewS
 		err = svc.DeleteDepartment(ctx, DR{ID: 2, Mode: model.DeleteModeCascade})
 		be.Err(t, err, nil)
 
-		gotN, err := svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 5, SortByName: true})
+		gotN, err := svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 5, SortBy: model.SortByName})
 		be.Err(t, err, nil)
 		be.Equal(be.Diff(t), zeroedTimeN(gotN), &N{
 			Department: &D{ID: 1, Name: "top_1", ParentID: -1},
@@ -560,7 +589,7 @@ func Service_DeleteDepartment(t *testing.T, ctx context.Context, newStorage NewS
 		err = svc.DeleteDepartment(ctx, DR{ID: 2, Mode: model.DeleteModeReassign, ReassignToDepartmentID: 1})
 		be.Err(t, err, nil)
 
-		gotN, err := svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 5, IncludeEmployees: true, SortByName: true})
+		gotN, err := svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 5, IncludeEmployees: true, SortBy: model.SortByName})
 		be.Err(t, err, nil)
 		be.Equal(be.Diff(t), zeroedTimeN(gotN), &N{
 			Department: &D{ID: 1, Name: "top_1", ParentID: -1},
@@ -641,7 +670,7 @@ func Service_DeleteDepartment(t *testing.T, ctx context.Context, newStorage NewS
 
 		err = svc.DeleteDepartment(ctx, DR{ID: 2, Mode: model.DeleteModeReassign, ReassignToDepartmentID: 1})
 		be.Err(t, err, nil)
-		gotN, err := svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 5, IncludeEmployees: true, SortByName: true})
+		gotN, err := svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 5, IncludeEmployees: true, SortBy: model.SortByName})
 		be.Err(t, err, nil)
 		be.Equal(be.Diff(t), zeroedTimeN(gotN), &N{
 			Department: &D{ID: 1, Name: "top_1", ParentID: -1},

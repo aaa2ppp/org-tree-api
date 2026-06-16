@@ -36,11 +36,20 @@ type Employee struct {
 	UpdatedAt    time.Time `json:"updated_at,omitzero" format:"date-time" example:"2026-05-31T14:17:10.0+03:00"`
 }
 
+//go:generate stringer -type SortBy
+type SortBy uint8
+
+const (
+	SortByID SortBy = iota
+	SortByName
+	SortByCreatedAt
+)
+
 type GetDepartmentsTreeRequest struct {
 	ID               int
 	Depth            int
 	IncludeEmployees bool
-	SortByName       bool
+	SortBy           SortBy
 }
 
 type DepartmentNode struct {

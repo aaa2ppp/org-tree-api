@@ -185,12 +185,10 @@ func (req *CreateEmployeeRequest) validate() error {
 //	@description	- department (объект подразделения)
 //	@description	- employees: [] (если include_employees=true, сортировка по created_at или full_name)
 //	@description	- children: [] (*вложенные* подразделения до depth, рекурсивно)
-//	@description	- sort_by_name: true | false (опционально)
+//	@description	- sort_by: id | name | created_at (задает поле сортировки дочерних отделов и сотрудников, по умолчанию id; если sort_by=name, сотрудники сортируются по full_name)
 //	@description
 //	@description	*Глубина дерева определяется как **количество ребер** на самом длинном пути от корня до листового узла.*
 //	@description	При значении depth=0 будет возвращено подразделение без потомков.
-//	@description	Внутри подразделения дочерние отделы и сотрудники сортируются по id, при установленном флаге
-//	@description	sort_by_name - по имени (name/full_name), затем по id.
 //	@produce		json
 //	@param			department_id		path		int		true	"ID подразделения"							minimum(1)
 //	@param			depth				query		int		false	"Глубина вложенных подразделений в ответе"	minimum(0),maximum(5),default(1)
@@ -225,7 +223,7 @@ func GetDepartmentTree(s Service) http.HandlerFunc {
 			ID:               departmentID,
 			Depth:            req.depth,
 			IncludeEmployees: req.includeEmployees,
-			SortByName:       req.sortByName,
+			SortBy:           req.sortBy,
 		})
 		if err != nil {
 			h.writeError(err)
@@ -243,7 +241,7 @@ func GetDepartmentTree(s Service) http.HandlerFunc {
 type departmentParams struct {
 	depth            int
 	includeEmployees bool
-	sortByName       bool
+	sortBy           model.SortBy
 }
 
 func getDepartmentParams(h *helper) (departmentParams, error) {
@@ -251,13 +249,29 @@ func getDepartmentParams(h *helper) (departmentParams, error) {
 
 	depth := q.Int("depth", optional, 1)
 	includeEmployees := q.Bool("include_employees", optional, true)
-	sortByName := q.Bool("sort_by_name", optional, false)
+	sortByStr := q.String("sort_by", optional, "id")
+
+	if err := q.Err(); err != nil {
+		return departmentParams{}, err
+	}
+
+	var sortBy model.SortBy
+	switch sortByStr {
+	case "id":
+		sortBy = model.SortByID
+	case "name":
+		sortBy = model.SortByName
+	case "created_at":
+		sortBy = model.SortByCreatedAt
+	default:
+		return departmentParams{}, errors.New("invalid sort_by")
+	}
 
 	return departmentParams{
 		depth:            depth,
 		includeEmployees: includeEmployees,
-		sortByName:       sortByName,
-	}, q.Err()
+		sortBy:           sortBy,
+	}, nil
 }
 
 // GetTopDepartments godoc
@@ -273,13 +287,11 @@ func getDepartmentParams(h *helper) (departmentParams, error) {
 //	@description	- department (объект подразделения)
 //	@description	- employees: [] (если include_employees=true, сортировка по created_at или full_name)
 //	@description	- children: [] (*вложенные* подразделения до depth, рекурсивно)
-//	@description	- sort_by_name: true | false (опционально)
+//	@description	- sort_by: id | name | created_at (задает поле сортировки отделов и сотрудников, по умолчанию id; если sort_by=name, сотрудники сортируются по full_name)
 //	@description
 //	@description	*Глубина дерева определяется как **количество ребер** на самом длинном пути от корня до листового узла.*
 //	@description	Предполагается, что подразделения верхнего уровня это дети виртуального корня.
 //	@description	При значении depth=1 будет возвращен список подразделений верхнего уровня без потомков.
-//	@description	Внутри подразделения дочерние отделы и сотрудники сортируются по id, при установленном флаге
-//	@description	sort_by_name - по имени (name/full_name), затем по id.
 //	@produce		json
 //	@param			depth				query	int		false	"Глубина вложенных подразделений в ответе"	minimum(1),maximum(5),default(1)
 //	@param			include_employees	query	bool	false	"Возвращать сотрудников подразделения"		default(true)
@@ -307,7 +319,7 @@ func GetTopDepartments(s Service) http.HandlerFunc {
 			ID:               model.VirtualRoot,
 			Depth:            req.depth,
 			IncludeEmployees: req.includeEmployees,
-			SortByName:       req.sortByName,
+			SortBy:           req.sortBy,
 		})
 		if err != nil {
 			h.writeError(err)

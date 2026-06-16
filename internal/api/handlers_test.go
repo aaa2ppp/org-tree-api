@@ -201,13 +201,25 @@ func TestParseInput(t *testing.T) {
 
 		// ---------- GetDepartmentTree ----------
 		{
-			"GET", "/departments/5?depth=2&include_employees=false&sort_by_name=true", "",
+			"GET", "/departments/5?depth=2&include_employees=false&sort_by=id", "",
 			"",
 			200,
-			model.GetDepartmentsTreeRequest{ID: 5, Depth: 2, IncludeEmployees: false, SortByName: true},
+			model.GetDepartmentsTreeRequest{ID: 5, Depth: 2, IncludeEmployees: false},
 		},
 		{
-			"GET", "/departments/5?depth=0&include_employees=true&sort_by_name=false", "",
+			"GET", "/departments/5?depth=2&include_employees=false&sort_by=name", "",
+			"",
+			200,
+			model.GetDepartmentsTreeRequest{ID: 5, Depth: 2, IncludeEmployees: false, SortBy: model.SortByName},
+		},
+		{
+			"GET", "/departments/5?depth=2&include_employees=false&sort_by=created_at", "",
+			"",
+			200,
+			model.GetDepartmentsTreeRequest{ID: 5, Depth: 2, IncludeEmployees: false, SortBy: model.SortByCreatedAt},
+		},
+		{
+			"GET", "/departments/5?depth=0&include_employees=true", "",
 			"",
 			200,
 			model.GetDepartmentsTreeRequest{ID: 5, Depth: 0, IncludeEmployees: true},
@@ -229,7 +241,7 @@ func TestParseInput(t *testing.T) {
 			400, nil,
 		},
 		{
-			"GET", "/departments/5?sort_by_name=invalid", "",
+			"GET", "/departments/5?sort_by=invalid", "",
 			"",
 			400, nil,
 		},
@@ -246,10 +258,16 @@ func TestParseInput(t *testing.T) {
 
 		// ---------- GetTopDepartments ----------
 		{
-			"GET", "/departments?depth=2&include_employees=false&sort_by_name=true", "",
+			"GET", "/departments?depth=2&include_employees=false&sort_by=name", "",
 			"",
 			200,
-			model.GetDepartmentsTreeRequest{ID: -1, Depth: 2, IncludeEmployees: false, SortByName: true},
+			model.GetDepartmentsTreeRequest{ID: -1, Depth: 2, IncludeEmployees: false, SortBy: model.SortByName},
+		},
+		{
+			"GET", "/departments?depth=2&include_employees=false&sort_by=created_at", "",
+			"",
+			200,
+			model.GetDepartmentsTreeRequest{ID: -1, Depth: 2, IncludeEmployees: false, SortBy: model.SortByCreatedAt},
 		},
 		{
 			"GET", "/departments?depth=5", "",
@@ -273,7 +291,7 @@ func TestParseInput(t *testing.T) {
 			400, nil,
 		},
 		{
-			"GET", "/departments?sort_by_name=invalid", "",
+			"GET", "/departments?sort_by=invalid", "",
 			"",
 			400, nil,
 		},

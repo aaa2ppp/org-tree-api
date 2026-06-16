@@ -1,6 +1,7 @@
 package service
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"math/rand/v2"
@@ -261,8 +262,8 @@ func (s *Service) GetDepartmentTree(ctx context.Context, req model.GetDepartment
 	linkEmployees(nodesMap, employees)
 
 	for _, node := range nodesMap {
-		sortChildren(node.Children, req.SortByName)
-		sortEmployees(node.Employees, req.SortByName)
+		sortChildren(node.Children, req.SortBy)
+		sortEmployees(node.Employees, req.SortBy)
 	}
 
 	root := nodesMap[req.ID]
@@ -298,34 +299,44 @@ func linkEmployees(nodes map[int]*model.DepartmentNode, employees []model.Employ
 	}
 }
 
-func sortChildren(children []*model.DepartmentNode, sortByName bool) {
-	if sortByName {
+func sortChildren(children []*model.DepartmentNode, sortBy model.SortBy) {
+	switch sortBy {
+	case model.SortByName:
 		slices.SortFunc(children, func(a, b *model.DepartmentNode) int {
-			if v := strings.Compare(a.Department.Name, b.Department.Name); v != 0 {
-				return v
-			}
+			return cmp.Or(
+				strings.Compare(a.Department.Name, b.Department.Name),
+				a.Department.ID-b.Department.ID,
+			)
+		})
+	case model.SortByCreatedAt:
+		slices.SortFunc(children, func(a, b *model.DepartmentNode) int {
+			return cmp.Or(
+				a.Department.CreatedAt.Compare(b.Department.CreatedAt),
+				a.Department.ID-b.Department.ID,
+			)
+		})
+	default:
+		slices.SortFunc(children, func(a, b *model.DepartmentNode) int {
 			return a.Department.ID - b.Department.ID
 		})
-		return
 	}
-	slices.SortFunc(children, func(a, b *model.DepartmentNode) int {
-		return a.Department.ID - b.Department.ID
-	})
 }
 
-func sortEmployees(employees []*model.Employee, sortByFullName bool) {
-	if sortByFullName {
+func sortEmployees(employees []*model.Employee, sortBy model.SortBy) {
+	switch sortBy {
+	case model.SortByName:
 		slices.SortFunc(employees, func(a, b *model.Employee) int {
-			if v := strings.Compare(a.FullName, b.FullName); v != 0 {
-				return v
-			}
+			return cmp.Or(strings.Compare(a.FullName, b.FullName), a.ID-b.ID)
+		})
+	case model.SortByCreatedAt:
+		slices.SortFunc(employees, func(a, b *model.Employee) int {
+			return cmp.Or(a.CreatedAt.Compare(b.CreatedAt), a.ID-b.ID)
+		})
+	default:
+		slices.SortFunc(employees, func(a, b *model.Employee) int {
 			return a.ID - b.ID
 		})
-		return
 	}
-	slices.SortFunc(employees, func(a, b *model.Employee) int {
-		return a.ID - b.ID
-	})
 }
 
 // MoveDepartment implements Service.
