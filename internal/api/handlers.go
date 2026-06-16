@@ -424,13 +424,14 @@ func (r *MoveDepartmentRequest) validate() error {
 //	@description	- mode: str (cascade | reassign)
 //	@description	cascade — удалить подразделение, всех сотрудников и все дочерние подразделения
 //	@description	reassign — удалить подразделение, а сотрудников и дочерние подразделения переместить в reassign_to_department_id
+//	@description	Если этот параметр не указан, подразделение удаляется только в том случае, если в нем нет дочерних подразделений или сотрудников
 //	@description
 //	@description	- reassign_to_department_id: int (обязателен, если mode=reassign)
 //	@description
 //	@description	**Response:** 204 No Content
 //	@description
 //	@param		department_id				path	int		true	"ID подразделения"					minimum(1)
-//	@param		mode						query	string	true	"Режим удаления"					enums(cascade,reassign)
+//	@param		mode						query	string	false	"Режим удаления"					enums(cascade,reassign)
 //	@param		reassign_to_department_id	query	int		false	"Расформировать подразделение в"	minimum(1)
 //	@success	204
 //	@failure	400
@@ -448,25 +449,20 @@ func DeleteDepartment(s Service) http.HandlerFunc {
 		}
 
 		q := h.query()
-
-		mode := q.String("mode", required, "")
+		modeStr := q.String("mode", required, "")
+		reassignTo := q.Int("reassign_to_department_id", optional, 0)
 		if err := q.Err(); err != nil {
 			h.writeError(&httpError{err.Error(), http.StatusBadRequest})
 			return
 		}
 
-		var cascade bool
-		var reassignTo int
-
-		switch mode {
+		var mode model.DeleteMode
+		switch modeStr {
+		case "":
 		case "cascade":
-			cascade = true
+			mode = model.DeleteModeCascade
 		case "reassign":
-			reassignTo = q.Int("reassign_to_department_id", required, model.VirtualRoot)
-			if err := q.Err(); err != nil {
-				h.writeError(&httpError{err.Error(), http.StatusBadRequest})
-				return
-			}
+			mode = model.DeleteModeReassign
 			if !model.ValidID(reassignTo) {
 				h.writeError(&httpError{"invalid reassign_to_department_id", http.StatusBadRequest})
 				return
@@ -478,7 +474,7 @@ func DeleteDepartment(s Service) http.HandlerFunc {
 
 		err = s.DeleteDepartment(h.ctx(), model.DeleteDepartmentRequest{
 			ID:                     departmentID,
-			Cascade:                cascade,
+			Mode:                   mode,
 			ReassignToDepartmentID: reassignTo,
 		})
 		if err != nil {

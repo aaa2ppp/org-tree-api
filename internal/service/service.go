@@ -27,6 +27,7 @@ type StorageTx interface {
 	DepartmentExists(ctx context.Context, id int) (bool, error)
 	HasChildWithName(ctx context.Context, parentID int, name string) (bool, error)
 	HaveCommonChildNames(ctx context.Context, deptID1, deptID2 int) (bool, error)
+	IsDepartmentEmpty(ctx context.Context, id int) (bool, error)
 	IsDescendantOf(ctx context.Context, descendantID int, ancestorID int) (bool, error)
 	ReassignChildren(ctx context.Context, srcDeptID, dstDeptID int) error
 	ReassignEmployees(ctx context.Context, srcDeptID, dstDeptID int) error
@@ -128,14 +129,27 @@ func (s *Service) DeleteDepartment(ctx context.Context, req model.DeleteDepartme
 	if !model.ValidID(req.ID) {
 		return fmt.Errorf("%w: invalid department id", model.ErrValidation)
 	}
-	if req.Cascade {
+
+	switch req.Mode {
+	case model.DeleteModeCascade:
 		return s.deleteDepartmentCascade(ctx, req.ID)
+
+	case model.DeleteModeReassign:
+		reassignTo := req.ReassignToDepartmentID
+		if !model.ValidID(reassignTo) {
+			return fmt.Errorf("%w: invalid reassign_to_department_id", model.ErrValidation)
+		}
+		if req.ID == reassignTo {
+			return fmt.Errorf("%w: cannot reassign department into itself", model.ErrValidation)
+		}
+		return s.deleteDepartmentWithReassign(ctx, req.ID, reassignTo)
 	}
-	return s.deleteDepartmentWithReassign(ctx, req.ID, req.ReassignToDepartmentID)
+
+	return s.deleteDepartmentIfEmpty(ctx, req.ID)
 }
 
 func (s *Service) deleteDepartmentCascade(ctx context.Context, id int) error {
-	return s.stor.Transaction(ctx, func(tx StorageTx) (err error) {
+	return s.stor.Transaction(ctx, func(tx StorageTx) error {
 		if err := checkDepartmentExists(ctx, tx, id); err != nil {
 			return err
 		}
@@ -143,15 +157,8 @@ func (s *Service) deleteDepartmentCascade(ctx context.Context, id int) error {
 	})
 }
 
-func (s *Service) deleteDepartmentWithReassign(ctx context.Context, id, reassignTo int) error {
-	if !model.ValidID(reassignTo) {
-		return fmt.Errorf("%w: invalid reassign_to_department_id", model.ErrValidation)
-	}
-	if id == reassignTo {
-		return fmt.Errorf("%w: cannot reassign department into itself", model.ErrValidation)
-	}
-
-	return s.stor.Transaction(ctx, func(tx StorageTx) (err error) {
+func (s *Service) deleteDepartmentWithReassign(ctx context.Context, id int, reassignTo int) error {
+	return s.stor.Transaction(ctx, func(tx StorageTx) error {
 		dept, err := tx.GetDepartment(ctx, id)
 		if err != nil {
 			return err
@@ -190,6 +197,24 @@ func (s *Service) deleteDepartmentWithReassign(ctx context.Context, id, reassign
 		}
 		if err := tx.ReassignEmployees(ctx, id, reassignTo); err != nil {
 			return err
+		}
+
+		return tx.DeleteDepartment(ctx, id)
+	})
+}
+
+func (s *Service) deleteDepartmentIfEmpty(ctx context.Context, id int) error {
+	return s.stor.Transaction(ctx, func(tx StorageTx) error {
+		if err := checkDepartmentExists(ctx, tx, id); err != nil {
+			return err
+		}
+
+		isEmpty, err := tx.IsDepartmentEmpty(ctx, id)
+		if err != nil {
+			return err
+		}
+		if !isEmpty {
+			return fmt.Errorf("%w: department must be empty", model.ErrConflict)
 		}
 
 		return tx.DeleteDepartment(ctx, id)

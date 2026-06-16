@@ -357,3 +357,8 @@ func (t *departmentsTree) IsDescendantOf(descendantID int, ancestorID int) (bool
 	}
 	return t.isDescendantOf(descendant, ancestorID), nil
 }
+
+func (t *departmentsTree) IsDepartmentEmpty(id int) (bool, error) {
+	dept := t.departments[id]
+	return dept == nil || (len(dept.children) == 0 && len(dept.employees) == 0), nil
+}

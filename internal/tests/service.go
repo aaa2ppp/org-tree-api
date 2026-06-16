@@ -520,7 +520,7 @@ func Service_DeleteDepartment(t *testing.T, ctx context.Context, newStorage NewS
 		be.Err(t, err, nil)
 		be.Equal(t, gotD.ID, 2)
 
-		err = svc.DeleteDepartment(ctx, DR{ID: 2, Cascade: true})
+		err = svc.DeleteDepartment(ctx, DR{ID: 2, Mode: model.DeleteModeCascade})
 		be.Err(t, err, nil)
 
 		gotN, err := svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 5, SortByName: true})
@@ -557,7 +557,7 @@ func Service_DeleteDepartment(t *testing.T, ctx context.Context, newStorage NewS
 		be.Err(t, err, nil)
 		be.Equal(t, gotE.ID, 2)
 
-		err = svc.DeleteDepartment(ctx, DR{ID: 2, ReassignToDepartmentID: 1})
+		err = svc.DeleteDepartment(ctx, DR{ID: 2, Mode: model.DeleteModeReassign, ReassignToDepartmentID: 1})
 		be.Err(t, err, nil)
 
 		gotN, err := svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 5, IncludeEmployees: true, SortByName: true})
@@ -582,7 +582,7 @@ func Service_DeleteDepartment(t *testing.T, ctx context.Context, newStorage NewS
 		be.Err(t, err, nil)
 		be.Equal(t, gotD.ID, 1)
 
-		err = svc.DeleteDepartment(ctx, DR{ID: 1, ReassignToDepartmentID: 1})
+		err = svc.DeleteDepartment(ctx, DR{ID: 1, Mode: model.DeleteModeReassign, ReassignToDepartmentID: 1})
 		be.Err(t, err, model.ErrValidation, model.ErrConflict)
 	})
 
@@ -597,7 +597,7 @@ func Service_DeleteDepartment(t *testing.T, ctx context.Context, newStorage NewS
 		be.Err(t, err, nil)
 		be.Equal(t, gotD.ID, 2)
 
-		err = svc.DeleteDepartment(ctx, DR{ID: 1, ReassignToDepartmentID: 2})
+		err = svc.DeleteDepartment(ctx, DR{ID: 1, Mode: model.DeleteModeReassign, ReassignToDepartmentID: 2})
 		be.Err(t, err, model.ErrConflict)
 	})
 
@@ -620,7 +620,7 @@ func Service_DeleteDepartment(t *testing.T, ctx context.Context, newStorage NewS
 		be.Err(t, err, nil)
 		be.Equal(t, gotD.ID, 4)
 
-		err = svc.DeleteDepartment(ctx, DR{ID: 2, ReassignToDepartmentID: 1})
+		err = svc.DeleteDepartment(ctx, DR{ID: 2, Mode: model.DeleteModeReassign, ReassignToDepartmentID: 1})
 		be.Err(t, err, model.ErrConflict)
 	})
 
@@ -639,7 +639,7 @@ func Service_DeleteDepartment(t *testing.T, ctx context.Context, newStorage NewS
 		be.Err(t, err, nil)
 		be.Equal(t, gotD.ID, 3)
 
-		err = svc.DeleteDepartment(ctx, DR{ID: 2, ReassignToDepartmentID: 1})
+		err = svc.DeleteDepartment(ctx, DR{ID: 2, Mode: model.DeleteModeReassign, ReassignToDepartmentID: 1})
 		be.Err(t, err, nil)
 		gotN, err := svc.GetDepartmentTree(ctx, GR{ID: 1, Depth: 5, IncludeEmployees: true, SortByName: true})
 		be.Err(t, err, nil)
@@ -649,5 +649,35 @@ func Service_DeleteDepartment(t *testing.T, ctx context.Context, newStorage NewS
 				{Department: &D{ID: 3, Name: "child_1", ParentID: 1}},
 			},
 		})
+	})
+
+	t.Run("mode undefined", func(t *testing.T) {
+		svc := service.New(newStorage(t))
+
+		gotD, err := svc.CreateDepartment(ctx, D{Name: "top_1", ParentID: -1})
+		be.Err(t, err, nil)
+		be.Equal(t, gotD.ID, 1)
+
+		gotD, err = svc.CreateDepartment(ctx, D{Name: "child_1", ParentID: 1})
+		be.Err(t, err, nil)
+		be.Equal(t, gotD.ID, 2)
+
+		gotE, err := svc.CreateEmployee(ctx, E{FullName: "empl_1", Position: "staff", DepartmentID: 2})
+		be.Err(t, err, nil)
+		be.Equal(t, gotE.ID, 1)
+
+		// childeren not empty
+		err = svc.DeleteDepartment(ctx, DR{ID: 1})
+		be.Err(t, err, model.ErrConflict)
+
+		// employees not empty
+		err = svc.DeleteDepartment(ctx, DR{ID: 2})
+		be.Err(t, err, model.ErrConflict)
+
+		err = svc.DeleteDepartment(ctx, DR{ID: 2, Mode: model.DeleteModeCascade})
+		be.Err(t, err, nil)
+
+		err = svc.DeleteDepartment(ctx, DR{ID: 1})
+		be.Err(t, err, nil)
 	})
 }

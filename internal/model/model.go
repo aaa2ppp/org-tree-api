@@ -55,8 +55,17 @@ type MoveDepartmentRequest struct {
 	ParentID int
 }
 
+//go:generate stringer -type DeleteMode
+type DeleteMode uint8
+
+const (
+	DeleteModeUndefined DeleteMode = iota
+	DeleteModeCascade
+	DeleteModeReassign
+)
+
 type DeleteDepartmentRequest struct {
 	ID                     int
-	Cascade                bool
+	Mode                   DeleteMode
 	ReassignToDepartmentID int
 }

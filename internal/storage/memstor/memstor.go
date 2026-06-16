@@ -73,6 +73,10 @@ func (m *memStorTx) IsDescendantOf(_ context.Context, descendantID int, ancestor
 	return m.tree.IsDescendantOf(descendantID, ancestorID)
 }
 
+func (m *memStorTx) IsDepartmentEmpty(_ context.Context, id int) (bool, error) {
+	return m.tree.IsDepartmentEmpty(id)
+}
+
 func (m *memStorTx) UpdateDepartment(_ context.Context, dept model.Department) error {
 	return m.tree.UpdateDepartment(dept)
 }

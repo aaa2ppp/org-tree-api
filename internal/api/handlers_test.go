@@ -370,12 +370,12 @@ func TestParseInput(t *testing.T) {
 		{
 			"DELETE", "/departments/5?mode=cascade", "",
 			"",
-			204, model.DeleteDepartmentRequest{ID: 5, Cascade: true},
+			204, model.DeleteDepartmentRequest{ID: 5, Mode: model.DeleteModeCascade},
 		},
 		{
 			"DELETE", "/departments/5?mode=reassign&reassign_to_department_id=10", "",
 			"",
-			204, model.DeleteDepartmentRequest{ID: 5, ReassignToDepartmentID: 10},
+			204, model.DeleteDepartmentRequest{ID: 5, Mode: model.DeleteModeReassign, ReassignToDepartmentID: 10},
 		},
 		{
 			"DELETE", "/departments/5?mode=reassign", "",

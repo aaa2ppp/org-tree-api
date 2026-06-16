@@ -166,7 +166,7 @@
                 }
             },
             "delete": {
-                "description": "**Query:**\n- mode: str (cascade | reassign)\ncascade — удалить подразделение, всех сотрудников и все дочерние подразделения\nreassign — удалить подразделение, а сотрудников и дочерние подразделения переместить в reassign_to_department_id\n\n- reassign_to_department_id: int (обязателен, если mode=reassign)\n\n**Response:** 204 No Content\n",
+                "description": "**Query:**\n- mode: str (cascade | reassign)\ncascade — удалить подразделение, всех сотрудников и все дочерние подразделения\nreassign — удалить подразделение, а сотрудников и дочерние подразделения переместить в reassign_to_department_id\nЕсли этот параметр не указан, подразделение удаляется только в том случае, если в нем нет дочерних подразделений или сотрудников\n\n- reassign_to_department_id: int (обязателен, если mode=reassign)\n\n**Response:** 204 No Content\n",
                 "tags": [
                     "department"
                 ],
@@ -188,8 +188,7 @@
                         "type": "string",
                         "description": "Режим удаления",
                         "name": "mode",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "minimum": 1,
