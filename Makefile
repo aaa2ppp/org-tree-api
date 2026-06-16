@@ -114,7 +114,7 @@ check-swag: ## install swag if need
 	@which swag 2>/dev/null || go install github.com/swaggo/swag/cmd/swag@v1.16.4
 
 check-stringer: ## install stringer if need
-	@which stringer 2>/dev/null || go install golang.org/x/tools/cmd/stringer@latest
+	@which stringer 2>/dev/null || go install golang.org/x/tools/cmd/stringer@v0.46.0
 
 check-tools: check-goose check-swag check-stringer
 
