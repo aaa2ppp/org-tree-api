@@ -193,7 +193,7 @@ func (req *CreateEmployeeRequest) validate() error {
 //	@param			department_id		path		int		true	"ID подразделения"							minimum(1)
 //	@param			depth				query		int		false	"Глубина вложенных подразделений в ответе"	minimum(0),maximum(5),default(1)
 //	@param			include_employees	query		bool	false	"Возвращать сотрудников подразделения"		default(true)
-//	@param			sort_by_name		query		bool	false	"Порядок сортировки"
+//	@param			sort_by				query		string	false	"Порядок сортировки"						enums(id,name,created_at),default(id)
 //	@success		200					{object}	model.DepartmentNode
 //	@failure		400
 //	@failure		404
@@ -295,7 +295,7 @@ func getDepartmentParams(h *helper) (departmentParams, error) {
 //	@produce		json
 //	@param			depth				query	int		false	"Глубина вложенных подразделений в ответе"	minimum(1),maximum(5),default(1)
 //	@param			include_employees	query	bool	false	"Возвращать сотрудников подразделения"		default(true)
-//	@param			sort_by_name		query	bool	false	"Порядок сортировки"
+//	@param			sort_by				query	string	false	"Порядок сортировки"						enums(id,name,created_at),defalut(id)
 //	@success		200					{array}	model.DepartmentNode
 //	@failure		400
 //	@failure		404

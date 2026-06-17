@@ -135,9 +135,13 @@ paths:
         name: include_employees
         type: boolean
       - description: Порядок сортировки
+        enum:
+        - id
+        - name
+        - created_at
         in: query
-        name: sort_by_name
-        type: boolean
+        name: sort_by
+        type: string
       produces:
       - application/json
       responses:
@@ -267,9 +271,13 @@ paths:
         name: include_employees
         type: boolean
       - description: Порядок сортировки
+        enum:
+        - id
+        - name
+        - created_at
         in: query
-        name: sort_by_name
-        type: boolean
+        name: sort_by
+        type: string
       produces:
       - application/json
       responses:

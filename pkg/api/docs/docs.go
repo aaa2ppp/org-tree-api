@@ -45,9 +45,14 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "type": "boolean",
+                        "enum": [
+                            "id",
+                            "name",
+                            "created_at"
+                        ],
+                        "type": "string",
                         "description": "Порядок сортировки",
-                        "name": "sort_by_name",
+                        "name": "sort_by",
                         "in": "query"
                     }
                 ],
@@ -149,9 +154,14 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "type": "boolean",
+                        "enum": [
+                            "id",
+                            "name",
+                            "created_at"
+                        ],
+                        "type": "string",
                         "description": "Порядок сортировки",
-                        "name": "sort_by_name",
+                        "name": "sort_by",
                         "in": "query"
                     }
                 ],
