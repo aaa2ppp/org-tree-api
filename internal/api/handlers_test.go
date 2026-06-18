@@ -423,7 +423,7 @@ func TestParseInput(t *testing.T) {
 		{
 			"DELETE", "/departments/5", "",
 			"",
-			400, nil,
+			204, model.DeleteDepartmentRequest{ID: 5},
 		},
 		{
 			"DELETE", "/departments/0?mode=cascade", "",

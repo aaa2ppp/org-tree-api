@@ -457,7 +457,7 @@ func DeleteDepartment(s Service) http.HandlerFunc {
 		}
 
 		q := h.query()
-		modeStr := q.String("mode", required, "")
+		modeStr := q.String("mode", optional, "")
 		reassignTo := q.Int("reassign_to_department_id", optional, 0)
 		if err := q.Err(); err != nil {
 			h.writeError(&httpError{err.Error(), http.StatusBadRequest})
