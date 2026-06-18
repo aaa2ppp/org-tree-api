@@ -3,7 +3,7 @@ WORKDIR /app
 RUN apk --no-cache add make
 RUN CGO_ENABLED=0 go install github.com/pressly/goose/v3/cmd/goose@v3.27.1
 RUN CGO_ENABLED=0 go install github.com/swaggo/swag/cmd/swag@v1.16.4
-RUN CGO_ENABLED=0 go install golang.org/x/tools/cmd/stringer@v0.46.0
+RUN CGO_ENABLED=0 go install github.com/dmarkham/enumer@v1.6.3
 
 FROM alpine:3.23 AS migrate
 WORKDIR /app

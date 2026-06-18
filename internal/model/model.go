@@ -36,7 +36,7 @@ type Employee struct {
 	UpdatedAt    time.Time `json:"updated_at,omitzero" format:"date-time" example:"2026-05-31T14:17:10.0+03:00"`
 }
 
-//go:generate stringer -type SortBy
+//go:generate enumer -type=SortBy -trimprefix=SortBy -transform=snake
 type SortBy uint8
 
 const (
@@ -64,11 +64,11 @@ type MoveDepartmentRequest struct {
 	ParentID int
 }
 
-//go:generate stringer -type DeleteMode
+//go:generate enumer -type=DeleteMode -trimprefix=DeleteMode -transform=snake
 type DeleteMode uint8
 
 const (
-	DeleteModeUndefined DeleteMode = iota
+	_ DeleteMode = iota
 	DeleteModeCascade
 	DeleteModeReassign
 )

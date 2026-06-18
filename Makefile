@@ -102,7 +102,7 @@ docker-db-shell: ## open psql in db container
 # DEVELOPMENT COMMANDS (local)
 # ============================================
 
-.PHONY: deps check-goose check-swag check-stringer check-tools build swag-generate go-generate generate test clean merge
+.PHONY: deps check-goose check-swag check-stringer check-enumer check-tools build swag-generate go-generate generate test clean merge
 
 deps: ## update deps
 	go mod tidy
@@ -113,10 +113,10 @@ check-goose: ## install goose if need
 check-swag: ## install swag if need
 	@which swag 2>/dev/null || go install github.com/swaggo/swag/cmd/swag@v1.16.4
 
-check-stringer: ## install stringer if need
-	@which stringer 2>/dev/null || go install golang.org/x/tools/cmd/stringer@v0.46.0
+check-enumer: ## install enumer if need
+	@which enumer 2>/dev/null || go install github.com/dmarkham/enumer@v1.6.3
 
-check-tools: check-goose check-swag check-stringer
+check-tools: check-goose check-swag check-stringer check-enumer
 
 
 # Находим все поддиректории в cmd, которые потенциально могут быть бинарниками

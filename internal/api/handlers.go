@@ -255,16 +255,12 @@ func getDepartmentParams(h *helper) (departmentParams, error) {
 		return departmentParams{}, err
 	}
 
-	var sortBy model.SortBy
-	switch sortByStr {
-	case "id":
-		sortBy = model.SortByID
-	case "name":
-		sortBy = model.SortByName
-	case "created_at":
-		sortBy = model.SortByCreatedAt
-	default:
-		return departmentParams{}, errors.New("invalid sort_by")
+	sortBy := model.SortByID
+	if sortByStr != "" {
+		var err error
+		if sortBy, err = model.SortByString(sortByStr); err != nil {
+			return departmentParams{}, errors.New("invalid sort_by")
+		}
 	}
 
 	return departmentParams{
@@ -469,19 +465,19 @@ func DeleteDepartment(s Service) http.HandlerFunc {
 		}
 
 		var mode model.DeleteMode
-		switch modeStr {
-		case "":
-		case "cascade":
-			mode = model.DeleteModeCascade
-		case "reassign":
-			mode = model.DeleteModeReassign
+		if modeStr != "" {
+			var err error
+			if mode, err = model.DeleteModeString(modeStr); err != nil {
+				h.writeError(&httpError{"invalid mode", http.StatusBadRequest})
+				return
+			}
+		}
+
+		if mode == model.DeleteModeReassign {
 			if !model.ValidID(reassignTo) {
 				h.writeError(&httpError{"invalid reassign_to_department_id", http.StatusBadRequest})
 				return
 			}
-		default:
-			h.writeError(&httpError{"mode must be cascade or reassign", http.StatusBadRequest})
-			return
 		}
 
 		err = s.DeleteDepartment(h.ctx(), model.DeleteDepartmentRequest{
